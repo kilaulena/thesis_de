@@ -1,0 +1,157 @@
+\section{Beschreibung}
+\label{sec:technisch-couchdb}
+
+In diesem Abschnitt werden die Features und einige Implementierungsdetails von CouchDB vorgestellt. In einem CouchDB-Datenbanksystem können beliebig viele Datenbanken angelegt werden, in denen Dokumente enthalten sind. Die Administrationsoberfläche \textit{Futon} kann in einem Browser unter der URL {\url{http://localhost:5984/_utils}} besucht werden. In Abbildung \ref{fig:futon-overview} findet sich ein Screenshot von einer CouchDB-Instanz und den darin enthaltenen Datenbanken, Abbildung \ref{fig:futon-browse-db} zeigt den Inhalt einer Datenbank. Operationen auf der Datenbank werden entweder über diese Oberfläche oder programmatisch vorgenommen.
+
+Mit CouchDB lässt sich eine differenzierte Zugriffskontrolle mit Benutzerverwaltung und Rechtevergabe umsetzen. Dies wird aus Platzgründen in dieser Arbeit nicht behandelt. Ebenfalls werden in dieser Darstellung manche Datenbank-Funktionen sowie einige Teile der HTTP-API ausgespart. Die Informationen in den folgenden Abschnitten, soweit nicht anders angegeben, können in \citelit{couchdb}, \cite{couch:overview} und \cite{couchdb:ibm} nachgelesen werden.
+
+
+
+\subsection{Dokumente und Konfliktbehandlung}
+\label{subsec:dokumente}
+
+In CouchDB-Dokumenten werden die eigentlichen Datensätze als JSON-Objekte (siehe auch Abschnitt \ref{subsec:json}) gespeichert. Ein Dokument kann eine beliebige Anzahl von beliebig großen Feldern haben, die einen innerhalb des Dokuments eindeutigen Namen tragen müssen. Binäre Attachments können ebenfalls an ein Dokument angehängt werden. Ein Dokument ist mit einer eindeutigen ID ({\fontfamily{pcr}\selectfont \_id}) versehen, die beim Erstellen angegeben oder als UUID zu mathematisch nahezu 100 Prozent eindeutig erzeugt wird. Abbildung \ref{fig:futon-document} zeigt beispielhaft ein Dokument.
+
+Als weiteres Metadatum enthält das Dokument eine Revisionsnummer, genannt {\fontfamily{pcr}\selectfont \_rev}. Werden Änderungen an einem Dokument vorgenommen, wird dieses nicht verändert; stattdessen wird eine neue Version des gesamten Dokuments erzeugt, das bis auf die vorgenommenen Änderungen und die neue Revisionsnummer identisch ist. Auf diese Weise beinhaltet die Datenbank eine komplette Versionsgeschichte jedes Dokuments. Mit dieser Art der Datenspeicherung implementiert CouchDB ein \textit{lockless and optimistic document update model} (s. Abschnitt \ref{subsec:concurrency}). 
+
+Ein Dokument wird nach dem folgenden Muster geändert: Das Dokument wird vom Client geladen, verändert und mit Angabe von ID und Revision in der Datenbank gespeichert. Wenn ein anderer Client inzwischen seine Änderungen am selben Dokument gespeichert hat, wird der erste Client beim Speichern eine Fehlermeldung bekommen (HTTP Status-Code 409: \enquote{conflict}). Um diesen aufzulösen, muss die aktuelle Version des Dokuments noch einmal geladen und modifiziert werden, bevor ein neuer Speicherversuch gemacht werden kann. Dieser schlägt entweder komplett fehl oder wird vollständig durchgeführt, zu keinem Zeitpunkt werden unvollständige Dokumente gespeichert. 
+
+Das Löschen eines Dokuments verläuft auf eine ähnliche Weise. Vor dem Löschen muss die aktuellste Version des Dokuments vorliegen. Der eigentliche Löschvorgang besteht darin, dem Dokument das Feld {\fontfamily{pcr}\selectfont \_deleted=true} hinzuzufügen. Gelöschte Dokumente werden genau wie ältere Versionen aufbewahrt, bis die Datenbank kompaktiert wird.
+
+Konflikte können dennoch auftreten, wenn an einem replizierten Datenset unabhängig voneinander Updates vorgenommen wurden. CouchDB verfügt allerdings über eine automatische Konflikterkennung, wodurch die Konfliktbehandlung vereinfacht wird. Die in beiden Kopien geänderten Dokumente werden ähnlich wie in einem Versionskontrollsystem beim Zusammenführen automatisch als konflikthaft gekennzeichnet. Dafür wird ihnen ein Array namens {\fontfamily{pcr}\selectfont \_conflicts} hinzugefügt, in dem alle konflikthaften Revisionen gespeichert sind. Durch einen deterministischen Algorithmus wird eine der Revisionen als die \enquote{Gewinnerversion} gespeichert. Nur diese wird in den Views angezeigt. Die andere Revision wird in der Geschichte des Dokuments gespeichert, auf sie kann noch zugegriffen werden. Es ist Aufgabe der Anwendung bzw. der Benutzer, die Konflikte aufzulösen; dies kann durch Zusammenführen, Rückgängig machen oder Akzeptieren der Änderungen geschehen. Auf welcher Replik dies geschieht, ist unerheblich, solange am Ende der gelöste Konflikt durch Replikation allen Kopien bekannt gemacht wird.
+
+
+
+
+
+\subsection{HTTP-Schnittstelle}
+\label{subsec:api}
+
+Die Daten aus einer CouchDB-Datenbank können über eine API abgefragt und geschrieben werden. Diese API ist über die HTTP-Methoden GET, POST und PUT ansprechbar. Die Daten werden als JSON-Objekte zurückgegeben. Da JSON und HTTP von vielen Sprachen und Bibliotheken unterstützt werden, können von einer beliebig umgesetzten Anwendung aus Datenbankoperationen auf CouchDB vorgenommen werden. 
+
+Für die JavaScript-HTTP-API von CouchDB wurde im Verlauf dieser Arbeit eine Testsuite erstellt, dies wird in Abschnitt \ref{subsec:testsuite} erläutert. 
+
+Die CouchDB-API verfügt über eine Reihe von Funktionen, die sich nach \citelit[Kap. 4]{couchdb} in vier Bereiche unterteilen lassen. Für jeden der Bereiche werden einige Einsatzmöglichkeiten und ein Beispiel für die Abfrage mit dem Kommandozeilen-Werkzeug \textit{cURL} genannt.
+
+\subsubsection{Server-API}
+
+\lstset{language=bash}
+Wird ein einfacher GET-Request an die URI des CouchDB-Servers gerichtet, sendet dieser die Versionsnummer der CouchDB-Installation: \lstinline!curl http://localhost:5984/! liefert das JSON-Objekt \lstinline!{"couchdb":"Welcome","version":"0.11.0b902479"}! zurück. Mit anderen Funktionen können eine Liste aller Datenbanken abgefragt oder Konfigurationseinstellungen vorgenommen werden. Benutzeridentifikation wird ebenfalls direkt über den Server abgewickelt, Benutzer können sich gegenüber dem Server identifizieren oder ausloggen. 
+
+\subsubsection{Datenbanken-API}
+
+Mit dem Befehl \lstinline!curl -X PUT http://localhost:5984/exampledb! kann eine Datenbank erstellt werden. Im Erfolgsfall wird hier \lstinline!{"ok":true}! zurückgegeben. Schlägt das Anlegen fehl, weil eine Datenbank mit diesem Namen bereits existiert, erhält man eine Fehlermeldung. Datenbanken können ebenfalls gelöscht, kompaktiert oder es können Informationen über sie abgefragt werden. Ein neues Dokument kann durch \lstinline!curl -X POST http://localhost:5984/exampledb -d '{"foo":"bar"}'! angelegt werden. CouchDB gibt als Antwort die ID und die Revision des angelegten Dokuments zurück: \lstinline!{"ok":true,"id":"6651b95e15b411dbab3d2a7a7d000452","rev":"1-303d5e305201766b21a42747173681d6"}!. Wird statt POST die Methode PUT verwendet, kann die ID des zu erstellenden Dokuments selbst gewählt werden. 
+
+\subsubsection{Dokumenten-API}
+
+Mit einem GET-Request auf die URI des Dokuments (\lstinline!http://localhost:5984/exampledb/6651b95e15b411dbab3d2a7a7d000452!) kann das Dokument aus dem obigen Beispiel wieder angefordert werden. Das Dokument kann durch einen PUT-Request geändert werden. Dabei muss die ID, das komplette geänderte Dokument und die letzte Revision des Dokuments mit angegeben werden. Fehlt die Revision oder ist sie unkorrekt, schlägt das Update fehl.
+
+\subsubsection{Replikations-API}
+
+Mit dem Befehl \lstinline!curl -X POST http://127.0.0.1:5984/_replicate -d '{"source":"exampledb","target":"exampledb-replica"}'! wird Replikation zwischen zwei Datenbanken gestartet. Soll eine Replikation in beide Richtungen realisiert werden, wird der Befehl ein zweites mal mit vertauschter Quelle und Ziel aufgerufen. Auf Parameter wird im nächsten Abschnitt näher eingegangen.
+
+
+
+
+
+\subsection{Replikation}
+\label{subsec:replikation-praxis}
+
+Damit eine Replik sofort von Updates auf anderen Repliken erfährt, kann die Replikation mit der Option {\fontfamily{pcr}\selectfont continuous=true} gestartet werden. Dieser Mechanismus wird \textit{Continuous Replication} genannt. Dadurch wird die HTTP-Verbindung offen gehalten, und jede Änderung an einem Dokument wird automatisch sofort repliziert. Continuous Replication muss explizit neu gestartet werden, wenn eine Netzwerkverbindung wieder verfügbar wird. Auch nach einem Server-Neustart wird sie nicht automatisch fortgesetzt.
+
+Es werden nur die Daten repliziert, die seit dem letzten Replikationsvorgang geändert wurden. Der Prozess ist also inkrementell. Wenn die Replikation durch Netzwerkprobleme oder plötzliche Ausfälle von Knoten fehlschlägt, wird der nächste Replikationsvorgang an der Stelle fortgesetzt, an der der letzte unterbrochen wurde. Replikation kann durch sogenannte \textit{Filter-Funktionen} gefiltert werden, so dass nur bestimmte Dokumente repliziert werden.
+
+
+
+\subsection{Change Notifications}
+\label{subsec:change-notif}
+
+CouchDB-Datenbanken haben eine Sequenznummer, die bei jedem Schreibzugriff an die Datenbank inkrementiert wird. Gespeichert werden auch die Änderungen  zwischen zwei Sequenznummern. Dadurch können Unterschiede zwischen Datenbanken effizient festgestellt werden, wenn Replikation nach einer Pause wieder aufgenommen wird. Diese Unterschiede werden nicht nur intern für die Replikation benutzt, sie können in Form des \textit{Changes-Feeds} auch für Anwendungslogik benutzt werden. 
+
+\lstset{language=bash}
+Mit dem Changes-Feed kann die Datenbank auf Änderungen überwacht werden. Die Abfrage von \lstinline!http://localhost:5984/exampledb/_changes! gibt ein JSON-Objekt zurück, das sowohl die aktuelle Sequenznummer als auch eine Liste aller Änderungen der Datenbank enthält: 
+
+\lstset{language=javascript}
+
+\medskip
+\begin{lstlisting}
+{"results": [
+    {"seq":1,"id":"test","changes":[{"rev":"1-aaa8e2a031bca334f50b48b6682fb486"}]},
+    {"seq":2,"id":"test2","changes":[{"rev":"1-e18422e6a82d0f2157d74b5dcf457997"}]}
+  ],
+"last_seq":2}
+\end{lstlisting}
+
+Der Changes-Feed kann mit unterschiedlichen Parametern versehen werden. So können mit {\fontfamily{pcr}\selectfont since=n} nur Änderungen seit einer bestimmten Sequenznummer angefordert werden. Mit {\fontfamily{pcr}\selectfont feed=continuous} kann der Feed, ähnlich wie die Replikation, so konfiguriert werden, dass er nach jeder Änderung in der Datenbank einen Eintrag zurückgibt. Die bereits erwähnten \textit{Filter-Funktionen} ermöglichen, nur Dokumente mit bestimmten Änderungen zurückzugeben. 
+
+
+
+
+
+
+
+
+\subsection{Anwendungen mit CouchDB}
+\label{subsec:designdokumente}
+
+In Dokumenten kann auch Programmcode enthalten sein, der von CouchDB ausgeführt werden kann. Solche Dokumente werden \textit{Designdokumente} genannt. Üblicherweise ist jeder Anwendung, die von CouchDB ausgeliefert werden soll, ein Designdokument zugeordnet. 
+
+Ein Designdokument ist nach festen Vorgaben strukturiert. Im Folgenden findet sich eine Auflistung der in einem Designdokument typischerweise enthaltenen Dokumente:
+
+\begin{description}
+  \item[\_id:] Enthält das Präfix {\fontfamily{pcr}\selectfont \_design/} und den Namen des Designdokuments bzw. der Anwendung, z.\,B. {\fontfamily{pcr}\selectfont \_design/doingnotes}.
+  \item[\_rev:] Von Replikation und Konfliktbehandlung werden Designdokumente behandelt wie normale Dokumente, deswegen enthalten sie eine Revisionsnummer.
+  \item[\_attachments:] In diesem Feld enthaltener Programmcode kann clientseitig im Browser ausgeführt werden. Hier kann die Anwendungslogik für eine CouchDB-Applikation enthalten sein. 
+  \item[\_views:] Ebenso wie {\fontfamily{pcr}\selectfont list}-, {\fontfamily{pcr}\selectfont show}- und {\fontfamily{pcr}\selectfont filter}-Felder enthält dieses Feld Funktionen, mit denen der Inhalt einer Datenbank gefiltert, strukturiert und/oder modifiziert ausgegeben werden kann. Dieser Code wird serverseitig, also von der Datenbank ausgeführt.
+\end{description}
+
+Abbildung \ref{fig:futon-design} enthält einen Screenshot von einem in Futon geöffneten Designdokument.
+
+
+
+
+\subsection{Views}
+\label{subsec:views}
+
+In relationalen Datenbanken werden die Beziehungen zwischen Daten ausgedrückt, in dem \enquote{gleiche} Daten in einer Tabelle gespeichert werden, und zusammengehörige Daten mit Primär- und Fremdschlüsseln verknüpft sind. Aufgrund dieser Beziehungen können dann durch dynamische Abfragen aggregierte Datensets angefordert werden. CouchDB wählt hier einen gegenteiligen Ansatz. Auf Datenbankebene sind keine Verknüpfungen realisiert. Verbindungen zwischen Dokumenten können auch dann noch gezogen werden, wenn die Daten schon vorhanden sind. Dafür werden die Abfragen dieser Daten und ihre Ergebnisse statisch in der Datenbank gespeichert. Sie haben keine Auswirkungen auf die Dokumente in der Datenbank. Diese Abfragen werden als Indizes gespeichert, die \textit{Views} genannt werden. 
+
+Views werden in Designdokumenten abgelegt und beinhalten JavaScript-Funktionen, die Abfragen mithilfe von \textit{MapReduce} \citelit{mapreduce} formulieren. Eine \textit{Map-Funktion} bekommt nacheinander alle Dokumente als Argument übergeben und bestimmt anhand dessen, ob es oder einzelne Felder durch den View verfügbar gemacht werden sollen. Wenn eine View eine \textit{Reduce-Funktion} enthält, wird diese zum Aggregieren der Ergebnisse verwendet. Listing \ref{lst:viewoutlines} zeigt eine View, mit der alle Dokumente auf das Feld {\fontfamily{pcr}\selectfont kind} mit dem Wert {\fontfamily{pcr}\selectfont Outline} überprüft werden. Wenn ein Dokument solch ein Feld enthält, wird dem resultierenden JSON-Objekt ein Eintrag hinzugefügt, der als Schlüssel die Dokumenten-ID und als Wert das Dokument enthält.
+
+\lstset{language=javascript}
+\medskip
+\begin{lstlisting}[caption=View: Map-Funktion zum Ausgeben aller Outlines, label={lst:viewoutlines}]
+function(doc) {
+  if(doc.kind == 'Outline') {
+    emit(doc._id, doc);
+  }
+}
+\end{lstlisting}
+
+
+Wird diese View unter dem Namen {\fontfamily{pcr}\selectfont outlines} in einem Designdokument {\fontfamily{pcr}\selectfont designname} gespeichert, kann sie mithilfe eines HTTP GET-Requests auf die URI {\url{http://localhost:5984/exampledb/_design/designname/outlines}} abgerufen werden. Views werden bei ihrem ersten Abrufen erstellt und dann mitsamt ihrem Index, wie auch normale Dokumente, in einem B+-Baum gespeichert. Werden weitere Dokumente hinzugefügt, die im Ergebnis der View enthalten sind, werden sie automatisch zur gespeicherten View hinzugefügt, wenn diese das nächste mal abgerufen wird. 
+
+Der Zugriff auf eine View kann über \textit{Schlüssel (Keys)} und \textit{Schlüsselbereiche (Key Ranges)} eingegrenzt werden. Die Abfrage von {\url{http://localhost:5984/exampledb/design/designname/outlines?key="5"}} gibt nur das Outline mit der ID {\fontfamily{pcr}\selectfont 5} zurück. Mit {\url{http://localhost:5984/exampledb/design/designname/outlines?startkey="2"&endkey="7"}} können alle Outlines angefordert werden, deren ID zwischen {\fontfamily{pcr}\selectfont 2} und {\fontfamily{pcr}\selectfont 7} liegt. Es existieren eine Vielzahl weiterer Parameter, mit denen die Abfrage weiter präzisiert werden kann. Die Schlüssel bzw. Schlüsselbereiche werden direkt auf den Datenbankengine gemappt, dadurch sind die Zugriffe sehr performant. Dies wird im nächsten Abschnitt erklärt.
+
+
+
+\subsection{Implementierung}
+\label{subsec:implementierung}
+
+Eine CouchDB-Datenbank ist immer in einem konsistenten Zustand, auch wenn der CouchDB-Server mitten in einem Speichervorgang abstürzen sollte. Dies wird in diesem Abschnitt mit einer Charakterisierung des verwendeten Datenbankengines begründet. Die Darstellung stützt sich auf \cite{btree:couchdb-implementation} und \citelit[Kap. G]{couchdb}.
+
+Die eingesetzte Datenstruktur ist ein \textit{B+-Baum}, eine Variation des \textit{B-Baums}. Ein B+-Baum ist auf die Speicherung von großen Datenmengen und schneller Abfrage dieser ausgerichtet. Auch für \textit{\enquote{extremely large datasets}} wird eine Zugriffszeit von unter 10 Millisekunden garantiert  \citelit{btree:bayer}. B+-Bäume wachsen in die Breite; auch mit mehreren Millionen Einträgen haben sie gewöhnlich eine einstellige Tiefe. Dies ist vorteilhaft, da CouchDB als Speichermedium Festplatten verwendet, wo jeder Traversierungsschritt ein zeitintensiver Vorgang ist.
+
+Ein B+-Baum ist ein vollständig balancierter Suchbaum, in dem Daten nach Schlüsseln sortiert gespeichert werden \citelit{btree:bayer}. In einem Knoten können mehrere Schlüsselwerte enthalten sein. Jeder Knoten verweist auf mehrere Kindknoten. Bei CouchDB sind die eigentlichen Daten ausschließlich in den Blättern gespeichert. In den B+-Bäumen werden sowohl die Dokumente als auch die Views indiziert. Dabei wird für jede Datenbank und jede View ein eigener B+-Baum angelegt. 
+
+Pro Datenbank ist nur ein gleichzeitiger Schreibzugriff erlaubt, die Schreibzugriffe werden serialisiert. Lesezugriffe können nebenläufig zueinander und zu Schreibzugriffen stattfinden. Datenbanken und Views können demnach gleichzeitig abgefragt und erneuert werden. Da CouchDB seine Daten im \textit{Append-Only-Modus} ablegt, enthält die Datenbankdatei eine komplette Versionsgeschichte aller Dokumente. MVCC kann dadurch effektiv umgesetzt werden. 
+
+Wie in Abschnitt \ref{subsec:dokumente} beschrieben, wird beim Ändern eines Dokuments dieses nicht überschrieben, sondern eine neue Revision erstellt. Danach werden die Knoten des B+-Baums nacheinander aktualisiert, bis sie alle auf den Speicherort der neusten Version des Dokuments verweisen. Dies geschieht ausgehend vom Blatt des Baums, der das Dokument enthält, bis hoch zum Wurzelknoten. Dieser wird also am Ende jedes Schreibzugriffs modifiziert. Wenn ein Lesezugriff noch die Referenz auf den alten Wurzelknoten hat, verweist dieser zu einer veralteten, aber konsistenten Momentaufnahme der Datenbank. Alte Revisionen der Dokumente werden erst bei einer vom Benutzer eingeleiteten \textit{Compaction (Verdichtung)} gelöscht. Deshalb können Lesezugriffe ihr Ergebnis fertig abfragen, auch wenn gleichzeitig eine neue Version des Dokuments erstellt wird. 
+
+Wenn ein B+-Baum auf die Festplatte geschrieben wird, werden die Änderungen stets an das Ende der Datei angehängt. Dadurch wird die Zugriffszeit beim Schreiben auf die Festplatte minimiert. Außerdem wird verhindert, dass unvorhergesehene Beendigung des Prozesses oder Stromausfälle den Index korrumpieren: 
+
+\begin{quote}
+If a crash occurs while updating a view index, the incomplete index updates are simply lost and rebuilt incrementally from its previously committed state. \cite{couch:overview}
+\end{quote}
+
+
+

@@ -1,0 +1,43 @@
+
+Hier die Formatierungshinweise ...
+
+
+- Alle Literaturangaben so formatieren:
+\citelit[S. 377]{codd:vs}
+\citelit[Kap. 1.2]{ansisparc}
+
+- Verweise sollen nicht abgekuerzt sein:
+siehe Kapitel 3
+siehe Abschnitt 2.3.2
+siehe Abbildung A.1
+
+
+- Soll sein: Generisches Maskulinum (seufz), aber weibliche Beispiele.
+Die Benutzerin kann hier klicken ...
+Geisteswissenschaftler haben den Zettelkasten erfunden ...
+
+
+- Fachbegriffe die das erste mal auftreten: kursiv. Wenn du nicht sicher bist ob er das erste mal auftritt, markieren. Im weiteren Verlauf wird er dann nicht markiert.
+
+- Begriffe aus dem Quelltext in Schreibmaschineschrift (Courier) und zwar immer. Wenn du nicht sicher bist, markieren.
+
+- Inline-Zitate in Anführungszeichen UND kursiv.
+
+- Umgangssprachliche Begriffe in Anführungszeichen. Wenn dir hier was besseres einfällt, her damit. In Anführungszeichen kommen auch inline-Zitate.
+
+
+- Wenn ein Begriff deutsch uebersetzt und im weiteren Text deutsch verwendet wird, zuerst deutsch, dann englisch in Klammern. Wenn er englisch verwendet wird, zuerst englisch, deutsche übersetzung in klammern.
+
+
+- Wenn eine Bild- oder Quelltextunterschrift überflüssig ist, kann sie auch weg.
+
+
+- Außerdem achten auf unsaubere oder lockere Formulierung, Sätze die verwirren, Sätze die nicht wissenschaftlich klingen oder sowas.
+
+- Auch gerne wenn du ne Idee hast dass man zb Absätze, oder ganze Abschnitte, besser vertauscht oder umstellt, damit irgendwas deutlicher wird! Also alles was zum besseren Lesefluss beiträgt.
+
+- Und natürlich Rechtschreibfehler
+- Abkürzungen: vgl., z.\,B., s., bzw. mit Punkten. 
+- ss/ß
+
+

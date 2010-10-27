@@ -1,0 +1,192 @@
+\chapter{CouchDB - eine Datenbank für Verteilte Systeme}
+\label{chap:couchdb}
+
+Nachdem der gewählte Lösungsansatz im vorherigen Kapitel begründet und kurz skizziert wurde, sollen in diesem und im nächsten Teil die für die Umsetzung der Aufgabenstellung verwendeten Technologien und Konzepte vorgestellt werden. 
+
+Im Mittelpunkt des Kapitels steht die ausführliche Darstellung der verwendeten Datenbank CouchDB. \textit{Apache CouchDB (\enquote{Cluster of unreliable commodity hardware Data Base})} ist ein dokumentenorientiertes Datenbanksystem \cite{couch:homepage}. CouchDB wird seit 2005 als Open-Source Projekt entwickelt und ist seit November 2008 ein offizielles Projekt der Apache Software Foundation \cite{couchdb:apache}. CouchDB wurde ursprünglich in C++ geschrieben, wird aber seit 2005 größtenteils in der Programmiersprache \textit{Erlang} \cite{erlang:homepage} entwickelt. Erlang wurde Ende der 80er Jahre des letzten Jahrhunderts für Echtzeitsysteme wie Telefonanlagen entworfen und zeichnet sich infolgedessen durch hohe Fehlertoleranz, Parallelität und Stabilität aus \cite{couchdb:ibm}. Das \textit{Erlang/OTP}-System (\textit{THe Open Telecom Platform}) umfasst neben der Programmiersprache Erlang auch Bibliotheken und das Laufzeitsystem.
+
+Im ersten Teil dieses Kapitels werden die theoretischen Grundprinzipien von CouchDB erläutert. Der zweite Teil ist der Beschreibung der Datenbank aus der Sicht der Anwendungsentwicklerin gewidmet.
+
+
+\section{Theoretische Einordnung}
+\label{sec:theoretisch-couchdb}
+
+
+Um die Motivation für die Entwicklung von CouchDB zu verstehen, wird zunächst kurz auf die jüngere Geschichte der Datenbanksysteme eingegangen und CouchDB im Hinblick auf die Drei-Schema-Architektur (s. Abschnitt \ref{subsec:3schema}) eingeordnet. Danach werden das CAP-Theorem und der Umgang von CouchDB mit nebenläufigen Transaktionen vorgestellt sowie die \enquote{RESTfulness} der HTTP-Schnittstelle untersucht. Des Weiteren wird der Unterschied im Ansatz von CouchDB im Vergleich zu traditionellen relationalen Datenbanken dargestellt. Dabei werden die einzelnen Aspekte von Aufbau, Eigenschaften und Funktionen angerissen, die dann im weiteren Verlauf dieses Kapitels ausführlich beschrieben werden. 
+
+
+\subsection{Einordnung der Datenbankarchitektur}
+\label{subsec:3schema}
+
+1975 entwarf das \textit{Standards Planning and Requirements Committee (SPARC)} des \textit{American National Standards Institute (ANSI)} ein Modell, das Anforderungen an den Aufbau eines Datenbanksystems beschreibt \citelit{datenbanksysteme}). Dieses Modell wird \textit{ANSI-SPARC-Architektur} oder auch \textit{Drei-Schema-Architektur} genannt. 
+
+Für die Benutzer einer Datenbank sollten Änderungen in den unteren Ebenen, also von Hardware, interner Speicherstruktur oder logischer Struktur, keine Auswirkungen haben \citelit[S.~377]{codd}. Ist eine Datenbank nach der Drei-Schema-Architektur aufgebaut, wird die Sicht der Benutzer auf die Datenbank von der technischen Umsetzung getrennt. Die interne Datenspeicherung wird also transparent für die Benutzer.
+
+Nach \citelit[Kap. 1.2]{ansisparc}, lassen sich die drei Ebenen des Schemas wie folgt unterteilen:
+
+\begin{description}
+  \item[Externe Schemata/Benutzersichten:] Teilbereiche der Datenbank sind für verschiedene Benutzergruppen freigegeben. Hier können abgeleitete Daten eingetragen werden, ohne dass die zugehörigen Grunddaten sichtbar gemacht werden müssen.
+  \item[Konzeptionelles Schema:] Diese Ebene enthält die Beschreibung aller Datenstrukturen für die Datenbank, also die Datentypen und -verknüpfungen. Dabei ist unerheblich, auf welche Weise die Daten abgelegt werden. Das konzeptionelle Schema ist sehr stark von Datenbankentwurf und benutztem Datenmodell abhängig.
+  \item[Internes Schema:] Hier sind die Einzelheiten der physischen Datenspeicherung festgelegt, also die Aufteilung der Datenbank auf verschiedene Rechner oder Festplatten, oder Indizes zur Beschleunigung der Zugriffe.
+\end{description}
+
+Diese Architektur kann unabhängig von der Frage angewendet werden, ob das dem Datenbanksystem zugrunde liegende Datenbankmodell relational, objektorientiert, netzwerkartig oder an einem anderen Modell orientiert ist. 
+
+CouchDB lässt sich ebenfalls dem ANSI-SPARC-Standard gemäß beschreiben. Den externen Schemata entsprechen dabei die CouchDB-Views. Das konzeptionelle Schema ist hier die Repräsentation der Dokumente als JSON-Objekte, also die Gesamtansicht der Datenbank. Das interne Schema ist die Art und Weise der Datenspeicherung, die bei CouchDB über einen  \textit{B+-Baum (B+-Tree)} umgesetzt wird. Diese drei Schichten werden in späteren Abschnitten dieses Kapitels detailliert beschrieben.
+
+
+
+
+\subsection{Das CAP-Theorem}
+\label{subsec:cap}
+
+\textit{CAP} steht für \textit{Consistency (Konsistenz)}, \textit{Availability (Verfügbarkeit)} und \textit{Partition Tolerance (Partitionstoleranz)}. Bei der Modellierung von Verteilten Systemen ist der Begriff der \textit{Partitionstoleranz} von großer Bedeutung \citelit[S. 62]{mixedblessings}. Er besagt, dass Subsysteme auch bei physikalischer Trennung und Verlust einzelner Nachrichten untereinander autonom weiter funktionieren können müssen. Eine Operation auf dem System muss auch dann erfolgreich durchgeführt werden, wenn ein Teil der Komponenten nicht erreichbar ist. Ein Verteiltes System muss jedoch noch zwei weitere Anforderungen erfüllen: \textit{Konsistenz} ist gegeben, wenn alle Komponenten zur selben Zeit die gleichen Daten sehen. \textit{Verfügbarkeit} bedeutet, dass das System auf jede Anfrage eine Antwort sendet, mit einer definierten und niedrigen Latenz. Die folgende Darstellung, sofern nicht anders angegeben, basiert auf \citelit[S. 1-4]{cap} und \citelit[Kap. 2]{couchdb}.
+
+Professor Brewer von der University of California hat mit dem \textit{CAP-Theorem} die Annahme formuliert, dass die drei Eigenschaften Konsistenz, Verfügbarkeit und Partitionstoleranz zwar von Web Services erwartet werden, es aber in der Realität nur möglich ist, zwei der drei Ansprüche zu erfüllen \citelit{cap:brewer}. Da Partitionstoleranz bei Verteilten Systemen unabdingbar ist, muss beim Entwurf die Entscheidung zwischen Konsistenz und Verfügbarkeit getroffen werden.
+
+In traditionellen Relationalen Datenbanksystemen (\textit{RDBMS}) kann Konsistenz meist vorausgesetzt werden, da diese standardmäßig die \textit{ACID}-Kriterien (\textit{Atomizität, Konsistenz, Isolation, Dauerhaftigkeit}) erfüllen. Vollständige Konsistenz meint in diesem Kontext die Eigenschaft, dass auf einen Schreibzugriff folgende Lesezugriffe sofort auf die aktuellen Daten zugreifen können. Dies wird als \textit{One-Copy-Serializability} oder auch \textit{Strong Consistency} bezeichnet \citelit{moser}. In RDBMS wird dies durch \textit{Locking}-Mechanismen erzwungen (s. Abschnitt \ref{subsec:concurrency}). In einem Verteilten System, in dem Daten auf mehr als einem Rechner verteilt sind, gestaltet sich die Umsetzung von Konsistenz schwieriger. Verschiedene in den letzten Jahren entwickelte nichtrelationale Datenspeicher wie etwa Bigtable \citelit{bigtable}, Hypertable \cite{hypertable:website}, HBase \cite{hbase:website}, MongoDB \cite{mongodb:website} und MemcacheDB \cite{memcachedb:website} entscheiden sich trotzdem für die absolute Konsistenz und gegen eine Optimierung der Verfügbarkeit. 
+
+Andere Projekte wie Cassandra \cite{cassandra:website}, Dynamo \cite{dynamo:website}, Project Voldemort \cite{voldemort:website} und CouchDB legen ihre Schwerpunkte stattdessen auf Verfügbarkeit. Dabei greifen sie auf unterschiedliche Strategien zurück, wie Konsistenz trotzdem umgesetzt werden kann. Durch einen sog. \textit{Consensus Algorithm} wie \textit{Paxos} \citelit{paxos} kann garantiert werden, dass Komponenten auch dann zur gleichen Lösung für einen Konflikt kommen, wenn keine Verbindung zwischen ihnen besteht \citelit{reaching}. Ein anderer Ansatz ist der Einsatz von \textit{Time-Clocks}, mit denen eine Sortierung von Daten in Verteilten Systemen umgesetzt werden kann \citelit{timeclocks}. 
+
+Die Strategie von CouchDB unterscheidet sich von den meisten anderen, weil sie neben Verfügbarkeit und Partitionstoleranz \textit{Eventual Consistency} vorsieht. Diese besagt, dass in einem beschränkten Zeitfenster zwischen Schreib- und Lesezugriff auf ein Datum \textit{Inkonsistenzen} (Widersprüche) auftreten können. Innerhalb dieses Zeitraums werden womöglich noch die alten Daten ausgegeben, danach jedoch spiegeln alle Lesezugriffe das Resultat des Schreibzugriffs wieder. Bei auftretenden Fehlern oder hoher Latenz können Datensätze also zeitweise inkonsistent erscheinen, die Konsistenz der Daten ist nur schlussendlich gegeben:
+
+\begin{quote}
+The storage system guarantees that if no new updates are made to the object, eventually all accesses will return the last updated value. \citelit{vogels}
+\end{quote}
+
+Eventual Consistency ist nicht für alle Bereiche ein praktikables Konzept. Wenn Benutzereingaben stark aufeinander aufbauen, also die Eingaben voneinander abhängen und die Benutzer zeitweise auf veralteten Daten arbeiten, können sich Fehler kumulativ fortpflanzen und die Konsistenz des Gesamtsystems ist kompromittiert (bspw. im Finanzsektor). Mit CouchDB können daher ebenfalls Systeme mit Strong Consistency umgesetzt werden. Bei vielen Anwendungen jedoch ist es von größerer Bedeutung, dass ein Update jederzeit erfolgreich durchgeführt werden kann, ohne dass die Datenbank blockiert ist (bspw. bei einem \textit{Social Network} oder beim vorliegenden Anwendungsfall). 
+
+
+
+
+
+\subsection{Transaktionen und Nebenläufigkeit}
+\label{subsec:concurrency}
+
+Jedes Datenbanksystem, das für mehrere Benutzer ausgelegt ist, muss sich mit Fragen der Nebenläufigkeit beschäftigen. Beantwortet werden muss die Frage was passiert, wenn zwei Benutzer gleichzeitig versuchen, denselben Wert zu verändern. \enquote{Gleichzeitig} meint hier nicht den exakt selben Zeitpunkt. Eine Operation, die Lesen, Ändern und Zurückspeichern eines Datums umfasst und die eine gewisse Zeit dauert, kann ein Problem mit Nebenläufigkeit verursachen, wenn ein anderer Benutzer eine ebensolche Operation innerhalb dieser Zeitspanne beginnt und dabei den vom ersten Benutzer zwischenzeitlich geänderten Wert überschreibt. Die Aufgabe der Datenbank ist es, eine solche Operation serialisierbar zu machen: Die beiden beschriebenen Operationen sollen dasselbe Ergebnis haben, wie wenn sie nacheinander stattgefunden hätten \citelit[S. 57]{mixedblessings}. Auch wenn es hier um sehr kurze Intervalle geht und Konfliktfälle in der Praxis unwahrscheinlich scheinen, müssen diese von vornherein in Design und Architektur einbezogen werden \citelit{vogels}.
+
+Bei dem von RDBMS hauptsächlich benutzten Locking belegt eine Operation die Ressourcen, die sie ändern möchte, mit einer Sperre. Andere Operationen müssen auf die Aufhebung dieser Sperre warten, dann haben sie exklusiven Zugriff auf die Daten. Locking ist für nichtverteilte Datenbanksysteme eine Herangehensweise mit guter Performance \citelit[S. 57]{mixedblessings}. Operationen müssen nicht warten, nur weil sie nebenläufig sind. Andererseits ist Locking von einigem Overhead begleitet und schwer umzusetzen, wenn die Teilnehmer der Transaktion verteilt sind. Es existieren Protokolle, die auch in Verteilten Systemen Sperren setzen und auflösen können \citelit{bernstein}, diese sind allerdings langsam und für die umzusetzende Anwendung unpraktikabel.
+
+CouchDB verwendet daher zur Kontrolle von Nebenläufigkeit eine Umsetzung von \textit{Optimistic Concurrency}, die sogenannte \textit{Multi-Version Concurrency Control (MVCC)}:
+
+\begin{quote}
+MVCC takes snapshots of the contents of the database, and only these snapshots are visible to a transaction. Once the transaction is complete, the modifications that were done are applied to the newest copy of the relation and the snapshot is discarded. This means that in any given time multiple different versions of the same data exists. \citelit[Kap. 2.1]{replication:effect}
+\end{quote}
+
+MVCC bringt Vorteile bei Verfügbarkeit und Performance, dafür sehen Benutzer teilweise inkonsistente Daten. Es gibt mehrere Wege, diesen Mechanismus umzusetzen. Entweder können mit Zeitstempeln oder Vektoruhren die Modifikationszeiten von Transaktionen und dadurch die Gültigkeit eines Updates bestimmt werden. Das Update wird dann entweder zugelassen oder zurückgewiesen. In \citelit{timeclocks} ist dies näher beschrieben. Bei CouchDB werden den Objekten keine Vektoren zugewiesen, sondern eine UUID und eine Revisionsnummer. Außerdem verwendet CouchDB das \textit{Copy-On-Write}-Verfahren, bei dem zwei Prozesse nie auf einen Eintrag zugreifen, sondern ihn hintereinander in ein Log schreiben. Felix Hupfeld beschreibt in \citelit[Kap. 2.2]{logstoragereplication} einen \textit{Log-based Storage Mechanismus}, siehe auch \cite{logstructuredstorage}: 
+
+\begin{quote}
+The basic organization of a log structured storage system is, as the name implies, a log - that is, an append-only sequence of data entries. Whenever you have new data to write, instead of finding a location for it on disk, you simply append it to the end of the log.
+\end{quote}
+
+Genau dieser Mechanismus wird in CouchDB angewendet, wenn die Versionen von Dokumenten in Revisionen oder auch die Daten im B+-Baum gespeichert werden. Dies wird in Abschnitt \ref{subsec:implementierung} genauer erklärt. 
+
+Der Nachteil von MVCC ist, dass zusätzliche Schichten von Komplexität in der Anwendungslogik bearbeitet werden müssen, die ein RDBMS still behandeln würde. CouchDB bietet hierfür Möglichkeiten, die in Abschnitt \ref{subsec:dokumente} erklärt werden. In \citelit[S. 60]{mixedblessings} wird dies jedoch als Vorteil diskutiert: Mit RDBMS werden Anwendungen so entworfen, dass bei steigendem Durchsatz leicht \textit{Bottlenecks} (Engpässe) entstehen, die dann nicht mehr beseitigt werden können. MVCC unterstützt die Entwickler darin, von Anfang an mögliche Konfliktquellen sauber zu behandeln. Dadurch wird ein Zuwachs der Zugriffszahlen die Performance der Anwendung weniger wahrscheinlich beeinträchtigen. Auch unter hoher Last kann die Rechenleistung des Servers voll ausgelastet werden, ohne dass auf gesperrte Ressourcen gewartet werden muss, Requests werden parallel ausgeführt. 
+
+
+\subsection{Replikation}
+\label{subsec:replikation-theorie}
+
+
+Allgemein werden mithilfe von Replikation Daten zwischen Komponenten eines Verteilten Systems synchronisiert. Bei CouchDB bedeutet dies, dass der Inhalt einer Datenbank in eine andere übertragen wird; Dokumente, die in beiden Datenbanken existieren, werden auf denselben Stand gebracht. Replikation lässt sich anhand mehrerer Dimensionen einteilen:
+
+
+\subsubsection{\textit{Conservative} oder \textit{Optimistic Replication}}
+\label{subsec:optimistic}
+
+Die vielleicht wichtigste Designentscheidung, die bei dem Konzept Replikation getroffen werden muss, ist die Frage nach dem Umgang mit nebenläufigen Updates: Wie soll sich das System verhalten, wenn verschiedene Repliken dasselbe Datum gleichzeitig aktualisieren wollen? Auf diese Frage wurde bereits in Abschnitt \ref{subsec:concurrency} näher eingangen. \citelit[Kap. 2]{mobildataaccess} nennt zwei Herangehensweisen: Bei \textit{Conservative} oder nach \citelit{replication:optimistic} \textit{Pessimistic Replication} muss die Konsistenz vor jedem Update überprüft werden. Ein Update wird abgelehnt, wenn es nebenläufig stattfindet. Für den vorliegenden Anwendungsfall ist diese Strategie nicht umsetzbar, da die Repliken nicht dauerhaft verbunden sind. Stattdessen setzt CouchDB eine \textit{Optimistic Replication} um \citelit[S. 43]{replication:optimistic}. 
+
+Bei Optimistic Replication werden Änderungen an replizierten Datensets akzeptiert, ohne dass die Repliken sich im gleichen Moment darüber abstimmen müssen oder ein Locking-Mechanismus eingesetzt wird. Die dadurch entstehenden Konflikte an den replizierten Daten zu bearbeiten ist Sache des Systems. CouchDB unterstützt dies durch automatische Konflikterkennung und -markierung, dies wird in Abschnitt \ref{subsec:dokumente} beschrieben. 
+
+
+
+
+\subsubsection{\textit{Client-Server-} oder \textit{Peer-to-Peer-Modell}}
+
+Nach \citelit[Kap. 2]{mobildataaccess} wird bei Replikation nach dem \textit{Client-Server-Modell} ein Update zuerst einem Server mitgeteilt, der es dann an alle Clients ausliefert. Das System wird dadurch simpler. Allerdings ist das System an einen nie ausfallenden Server gebunden. Replikation nach dem \textit{Peer-to-Peer-Modell} erlaubt es den Repliken, sich gegenseitig ihre Updates mitzuteilen. Dadurch können Updates zum einen schneller verbreitet werden: Sobald Konnektivität vorhanden ist, egal zwischen welchen Komponenten, kann diese genutzt werden. Eine CouchDB-Installation kann mit jeder anderen CouchDB-Instanz in beide Richtungen Master-Master-Replikation betreiben und ist daher für beide Modelle geeignet. Welche Strategie umgesetzt werden soll, hängt vom konkreten Anwendungsfall ab.  
+
+\subsubsection{Benachrichtigungstrategien}
+
+Bei den Benachrichtigungstrategien \citelit[Kap. 2]{mobildataaccess} wird zwischen \textit{Immediate Propagation} und \textit{Periodic Reconsiliation} unterschieden. Bei Immediate Propagation werden die anderen Repliken sofort nach einem Update benachrichtigt. Bei Periodic Reconsiliation werden die Repliken regelmäßig, zu einer passenden Zeit, über stattgefundene Updates benachrichtigt. CouchDB unterstützt beide Benachrichtigungstrategien. Da das hier zu erstellende System einen Betrieb auch ohne Netzverbindung erlaubt, muss es eine Form von Periodic Reconsiliation unterstützen, da Immediate Propagation fehlschlagen wird, wenn Knoten offline sind. 
+
+\subsubsection{\textit{Eager} oder \textit{Lazy Replication}}
+
+Weiterhin nimmt Jim Gray in \citelit[Kap. 1]{replication:dangers} eine Einteilung in \textit{Eager Replication} und \textit{Lazy Replication} vor. Bei ersterer werden alle Repliken immer sofort aktualisiert, sie müssen also immer verbunden sein. Dies ist für den in dieser Arbeit behandelten Anwendungsfall nicht praktikabel:
+
+\begin{quote}
+In Systemen, die über Weitverkehrsnetze kommunizieren oder mobile Endgeräte einschließen, muß das Replikationssystem mit großen Kommunikationslatenzen umgehen können. Deshalb werden in solchen Systemen in der Regel nur asynchrone Replikationsalgorithmen [...] eingesetzt. \citelit[S. IV]{weakconsistency}
+\end{quote}
+
+Die Replikation von CouchDB ist demnach \enquote{lazy} - Updates werden asynchron verbreitet. Durch den Replikationsalgorithmus von CouchDB kann eine CouchDB-Instanz die Änderungen einer anderen dann anfordern, wenn zwischen beiden eine Verbindung besteht.
+
+
+
+
+
+
+\subsection{HTTP-Schnittstelle}
+\label{subsec:rest}
+
+
+In \citelit{rest:vs} wird für dezentrale und unabhängige Verteilte Systeme der Architekturstil \textit{REST (Representational State Transfer)} empfohlen. REST-konform oder \textit{RESTful} ist eine Schnittstelle, mit der über HTTP \citelit{http:protocol} Daten übertragen werden können, wenn jede Ressource mit einer eigenen URL angesprochen werden kann \citelit{rest:thesis}. Weitere Vorgaben sind die Zustandslosigkeit des Protokolls, wohldefinierte Operationen, und die Möglichkeit, unterschiedliche Repräsentationen einer Ressource anzufordern. 
+
+Nicht alle \textit{APIs (Programmierschnittstellen)}, die RESTful genannt werden, die also angeblich dem REST-Architekturstil entsprechen, sind zurecht so eingeordnet. In der von NORD Software Consulting vorgenommenen Klassizifierung von HTTP-basierten APIs \cite{rest:classification} wird zwischen verschiedenen Stufen von RESTfulness unterschieden. Die meisten APIs fallen demnach in die Kategorien \enquote{HTTP-based Type I}, \enquote{HTTP-based Type II} oder \enquote{REST}. APIS, die in die ersten beiden Kategorien eingeordnet sind, verletzen eine der REST-Einschränkungen, da Client und Server durch das Schnittstellendesign fest aneinander gekoppelt sind. 
+
+Dies trifft auch auf die API von CouchDB zu, obwohl diese z.\,B. in  \cite{couch:overview} als RESTful bezeichnet wird. Nach \cite{rest:couchapi} muss eine RESTful API keine differenzierte Dokumentation enthalten, stattdessen würde eine Aufzählung der verfügbaren Medientypen und Felder genügen. Die CouchDB-API kann nach dieser Studie auch nicht in die Kategorie HTTP-based Type II eingeordnet werden, da ein generischer Medientyp verwendet wird, der die Ressourcen nicht selbsterklärend macht. Da die API allerdings korrekt bezeichnete Methodennamen in den URIs verwendet, kann sie als HTTP-based Type I bezeichnet werden. 
+
+In \citelit[Kap. 4]{couchdb} wird die eingeschränkte RESTfulness von manchen Teilen der API bestätigt. Beispielsweise ähnelt die API für die Replikation traditionellen \textit{Remote Procedure Calls}. Eine ausschließlich lose Kopplung, wie es die REST-Architektur vorsieht, ist bei einer Datenbank-API jedoch nicht unbedingt nötig \cite{rest:couchapi}. Trotzdem kann die API von CouchDB mithilfe der in Abschnitt \ref{subsec:designdokumente} erwähnten \textit{show}- und \textit{list}-Funktionen auch HTTP-based Type II- und REST-konform gemacht machen.
+
+
+
+
+\subsection{Abgrenzung zu relationalen Datenbanksystemen}
+
+
+Das relationale Datenmodell wurde Anfang der 70er Jahre von Edgar Codd \citelit{codd} erstmals wissenschaftlich beschrieben. IBM und Oracle implementierten Ende der 70er Jahre die ersten darauf basierenden Datenbanksysteme. Datenbanken liefen zu dieser Zeit noch auf einzelnen, nicht vernetzten Großrechnern. Diese mussten regelmäßig größere Operationen ausführen, die viel Datenbanklogik erforderten \citelit{couchdb:talk}. Bei jeder dieser Operationen datenbankweit die Konsistenz zu überprüfen stellte kein Problem dar, da die Operationen einfach nacheinander abgearbeitet wurden \citelit[Kap. 2]{couchdb}. Daten wurden durch physische Backups gegen Verlust abgesichert, Replikation kam erst später auf. RDBMS sind für eine solche Nutzungsweise optimiert. 
+
+
+\subsubsection{Replikation und Konfliktbehandlung}
+
+Ab Anfang der 80er Jahre setzten sich relationale Datenbanksysteme auch in anderen Anwendungsbereichen immer mehr durch. Die Einsatzszenarien sehen allerdings heute oft anders aus als damals: Im Bereich der Internetanwendungen müssen Server meist eine Vielzahl einzelner Abfragen gleichzeitig abarbeiten. Das Verhältnis zwischen Komplexität der Abfragen und Anzahl der Zugriffe hat sich stark verändert. Hinzu kommt die bei Verteilten Systemen unweigerlich aufkommende Frage nach der Umsetzung von Replikation und Konfliktlösungsstrategien.
+
+Trotz dieser Nachteile wird zur Implementierung von Webanwendungen heute die relationale Datenbank MySQL \cite{mysql:website} mit Abstand am häufigsten eingesetzt \cite[S. 18]{os:barometer}. Replikation bei MySQL ist nach dem Prinzip des \textit{Log Replay} aufgebaut \cite{mysql:replication}. In einem Master-Master-Setup treten jedoch regelmäßig nebenläufige, sich widersprechende Schreibzugriffe auf. Wenn die Datenbank Inkonsistenzen nicht definiert behandelt, müssen die Konflikte mit selbst zu erstellenden Datenbankfunktionen oder Anwendungslogik gelöst werden \cite{mysql:multimaster}. Die Replikationsstrategie von CouchDB dagegen ist inkrementell, auch bei Verbindungsabbruch während des Replikationsvorgangs bleiben die Daten stets in einem konstanten Zustand. Dies wird in Abschnitt \ref{subsec:replikation-praxis} erläutert. Die Fähigkeit von CouchDB, mit nebenläufigen Updates und entstandenen Konflikten umzugehen, wird in Abschnitt \ref{subsec:dokumente} dargelegt, und ist in Abschnitt \ref{subsec:implementierung} durch die Darstellung der Implementierung von CouchDB erklärt.
+
+
+
+\subsubsection{Keine Middleware}
+
+CouchDB wurde entwickelt, um den veränderten Ansprüchen und heutigen Anforderungen an eine Datenbank für Webanwendungen gerecht zu werden - \enquote{[it is] built \textit{of} the web} \cite{couch:oftheweb}. Die mit CouchDB umgesetzten Konzepte sind nicht neu. In \citelit[S. 39]{internetdatenbanken} wurde beschrieben, wie sich statische Webanwendungen der ersten Generation zum bisher verbreiteten Modell weiterentwickelten: Datenbank- und Anwendungsentwicklung wird völlig getrennt vorgenommen, zur Kommunikation mit den Anwendern werden Interfaces wie \textit{CGI} \cite{w3c:cgi} eingesetzt. Der Einsatz von Middleware ist dabei nötig, um ...
+
+ \begin{quote}
+... ausgehend von den vorhandenen Schnittstellen gängiger Web-Server und Datenbanksysteme den Übergang zwischen den Systemen für einen Entwickler so einfach und transparent wie möglich [zu] gestalten. \citelit[S. 24]{internetdatenbanken}
+\end{quote}
+
+Für die Zukunft der sog. Internetdatenbanken wurde in \citelit[S. 39]{internetdatenbanken} vorausgesagt, dass diese nicht nur Zugriff auf die Daten ermöglichen, sondern auch die Interaktion mit dem Anwendungssystem einbeziehen müssen. Bei einer mit CouchDB erstellten Anwendung kann diese Middleware entfallen. Stattdessen kann ein Anwendungsprogramm direkt mit der Datenbank kommunizieren. Dies geschieht über eine HTTP-API, die in Abschnitt \ref{subsec:api} vorgestellt wird. Auf diese Weise können stabile Anwendungen mit vergleichsweise geringem Aufwand umgesetzt werden.
+
+
+\subsubsection{Schemalosigkeit}
+
+
+Viele der Probleme beim Entwurf einer modernen Webanwendung (vgl. Kapitel \ref{chap:analyse} und \ref{sec:motivation}) beinhalten unvorhersehbares Verhalten der Benutzer und Input von einer großen Menge von Menschen mit einer großen Menge von Daten \citelit[S. 36]{mixedblessings}. Dies umfasst beispielsweise die Suche im Internet, das Erstellen von Graphen in Social Networks, Auswertung von Kaufgewohnheiten etc. Diese Aufgaben bringen oft unübersichtliche Datenstrukturen mit sich, die vorher nur schwer genau definiert und modelliert werden können. Laut \cite{nobah} sind solche Daten für die Abbildung als relationale Datenstrukturen nicht gut geeignet:
+
+\begin{quote}
+RDBMSs are designed to model very highly and statically structured data which has been modeled with mathematical precision. Data and designs that do not meet these criteria, such as data designed for direct human consumption, lose the advantages of the relational model, and result in poorer maintainability than with less stringent models. 
+\end{quote}
+
+Eine dokumentenorienterte Datenbank besteht aus einer Reihe von unabhängigen Dokumenten; alle Daten für ein Dokument sind in diesem selbst enthalten:
+
+\begin{quote}
+In fact, there are no tables, rows, columns or relationships in a document-oriented database at all. This means that they are schema-free; no strict schema needs to be defined in advance of actually using the database. If a document needs to add a new field, it can simply include that field, without adversely affecting other documents in the database. \cite{couchdb:ibm} 
+\end{quote}
+
+Die Schemalosigkeit von CouchDB ist für die Umsetzung des Prototypen zwar relevant, für die Konzeption aber nicht zentral. Dies kann sich aber in späteren Versionen der Anwendung anders darstellen, wenn der Gliederungseditor mehrere Spalten mit unterschiedlichen Datentypen und Medien enthalten wird (vgl. Kapitel \ref{chap:fazit}). 
+
+
+\subsubsection{Unique Identifiers}
+
+In relationalen Datenbanken werden Zeilen einer Tabelle üblicherweise mit einem Primärschlüssel identifiziert, der oft durch eine \textit{auto-increment}-Funktion bestimmt wird \cite{couchdb:ibm}. Eindeutig sind diese Schlüssel jedoch nur für die Datenbank und die Tabelle, in der sie erzeugt wurden. Wenn auf zwei unterschiedlichen Datenbanken, die später synchronisiert werden, ein Eintrag hinzugefügt wird, wird hier ein Konflikt auftreten \cite{mysql:increment}. In CouchDB wird jedem Dokument bei der Erstellung eine \textit{UUID (Universally Unique Identifier)} zugewiesen. Auf diese Weise wird ein Konflikt statistisch nahezu unmöglich. Ein Überblick über Dokumente in CouchDB findet sich in Abschnitt \ref{subsec:dokumente}.
+
+\subsubsection{Views statt Joins}
+
+Einer der wichtigsten Unterschiede zwischen dokumentenorienterten und relationalen Datenbanken ist die Art und Weise, wie Abfragen an die Datenbank gestellt werden. Da CouchDB keine Primär- und Fremdschlüssel kennt, können Daten nicht direkt verknüpft und über Joins abgerufen werden. Stattdessen kann mithilfe von \textit{Views} eine Beziehung zwischen beliebigen Dokumenten der Datenbank hergestellt werden, ohne dass diese Beziehung in der Datenbank vordefiniert sein muss. Views werden in Abschnitt \ref{subsec:views} erklärt. Oft werden Joins auch schon durch die Modellierung der Daten in Dokumenten  überflüssig gemacht.
+

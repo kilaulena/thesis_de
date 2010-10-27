@@ -1,0 +1,48 @@
+Hallo.
+
+Tada, hier also was zu lesen!
+
+Kapitel  ist für dich.
+
+Darum geht es um.
+
+Wenn du magst kannst du dir auch noch Kapitel 2 vornehmen, das ist die Aufgabenstellung, eine Seite lang, ist vielleicht ganz gut zur Einführung. Einleitung und Schluss sind noch nicht fertig.
+
+
+Wär toll wenn du besonderen Wert auf Inhaltliches legst. Formatierungskram kommt erst danach und das macht jemand anderes.
+
+
+Wie du's korrigierst ist dir ueberlassen: Anmerkungen mit Angabe von Abschnitt oder Seite in einer Textdatei - ausgedruckt und vollgekritzelt - in ein Word Dokument mit Autokorrektur ...
+
+Waere cool wenn ich es bis Anfang nächster Woche ungefähr hätte. Zur Not auch noch bis Ende der Woche.
+
+Vielen - vielen - Dank schonmal!!
+
+Lena
+
+
+
+
+Hier noch ein paar Hinweise auf was man alles achten kann. Im Zweifelsfall irgendwie markieren. Ich geh dann alles Markierte nochmal durch.
+
+
+- Achten auf unsaubere oder lockere Formulierung, Sätze die verwirren, Sätze die nicht wissenschaftlich klingen oder sowas.
+
+- Auch gerne wenn du ne Idee hast dass man zb Absätze, oder ganze Abschnitte, besser vertauscht oder umstellt, damit irgendwas deutlicher wird! Also alles was zum besseren Lesefluss beiträgt.
+
+
+- Fachbegriffe die das erste mal auftreten: kursiv. Wenn du nicht sicher bist ob er das erste mal auftritt, markieren. Im weiteren Verlauf wird er dann nicht markiert.
+
+- Begriffe aus dem Quelltext in Schreibmaschineschrift (Courier) und zwar immer. Wenn du nicht sicher bist, markieren.
+
+- Umgangssprachliche Begriffe in Anführungszeichen. Wenn dir hier was besseres einfällt, her damit. In Anführungszeichen kommen auch inline-Zitate.
+
+- Inline-Zitate in Anführungszeichen UND kursiv.
+
+- Wenn ein Begriff deutsch uebersetzt und im weiteren Text deutsch verwendet wird, zuerst deutsch, dann englisch in Klammern. Wenn er englisch verwendet wird, zuerst englisch, deutsche übersetzung in klammern.
+
+- Soll sein: Generisches Maskulinum (seufz), aber weibliche Beispiele.
+Die Benutzerin kann hier klicken ...
+Geisteswissenschaftler haben den Zettelkasten erfunden ...
+
+- Und natürlich Rechtschreibfehler.

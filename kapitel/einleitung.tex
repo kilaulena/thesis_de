@@ -1,0 +1,47 @@
+\chapter{Einleitung}
+
+
+\section{Motivation}
+\label{sec:motivation}
+
+
+\begin{quote}
+We're at the dawn of a new age on the web, or maybe on a horizon, or a precipice; the metaphor doesn't matter, the point is, things are changing. Specifically, as browsers become more and more powerful, as developers we're given new opportunities to rethink how we architect web applications. 
+\cite{web:architecture}
+\end{quote}
+
+Das Internet wird mehr und mehr ein Bestandteil des alltäglichen Lebens. Der Anteil der regelmäßigen Internetnutzer in Deutschland liegt im Jahr 2010 bei 72 Prozent und steigt stetig an. Unter den 14 bis 19jährigen beträgt der Anteil der Menschen, die das Internet nie nutzen, nur noch 3 Prozent \citelit[S. 10]{internetverbreitung}. Mit der Anzahl der Benutzer nimmt die Normalität zu, mit der Webanwendungen für Zusammenarbeit, Kommunikation und Datenaustausch benutzt werden. Dabei müssen diese Webanwendungen einer steigenden Anzahl von Benutzern zeitgleichen Zugriff erlauben. Dem Webbrowser kommt dabei als Plattform für Anwendungen eine immer größere Bedeutung zu \citelit[S. 16)]{webapps}. Kaum eine Software hat sich in den letzten zehn Jahren so weiterentwickelt wie der Webbrowser \citelit{browsers}. Dadurch entstehen auch neue Möglichkeiten, Webanwendungen zu entwickeln: Es können immer höhere Anforderungen an Bedienbarkeit, Einsetzbarkeit und Verfügbarkeit der Anwendungen gestellt und auch erfüllt werden.
+
+Ein weiterer Trend ist die zunehmende Verbreitung von mobilen Endgeräten \citelit[S. 61]{internetverbreitung}. In \citelit[S. 7]{mobileagents} wird vorausgesagt, dass durch das Wachstum der Angebote im Internet in Verbindung mit der Weiterentwicklung der Informationstechnologien die Anzahl der Zugangsgeräte stark ansteigen wird. Mobile Endgeräte sind heute vor allem Laptops und Mobiltelefone. Diese haben oft eine schlechtere Konnektivität als stationäre Endgeräte. Lange Phasen ohne Verbindung sind die Norm, weitere Herausforderungen sind hohe Latenzen und limitierte Bandbreite \citelit{mobildataaccess}. 
+
+Es besteht also ein großer Bedarf an Technologien, die die oben aufgeführten Ansprüche an Zusammenarbeit und Datenaustausch erfüllen. Diese müssen die Umsetzung von Systemen ermöglichen, die in großem Rahmen skalieren. Gleichzeitig sollen sie aber auch den Bedarf an kontinuierlicher Konnektivität stark reduzieren. Eine mögliche Lösung für diese Art Problem ist Datenreplikation. Diese wird bei \citelit{mobildataaccess} so umrissen: 
+
+\begin{quote}
+Copies of data are placed at various hosts in the overall network, [...] often local to users. In the extreme, a data replica is stored on each mobile computer that desires to access that data, so all user data access is local.
+\end{quote}
+
+Die Schwierigkeit hierbei ist, die Daten regelmäßig zu synchronisieren und konsistent zu halten. Die Überwachung der Konsistenz ist Aufgabe des Systems, das die Replikation durchführt. Ziele eines solchen Systems sind hohe Verfügbarkeit und Kontrolle über die eigenen Daten. Eine solche Lösung kann gleichzeitig den hohen Ansprüchen an Datenschutz genügen, die Benutzer an moderne Webanwendungen stellen \citelit{privacy:concerns, privacy:disclose}. Bei Systemen, die Replikation umsetzen, können die Benutzer selbst entscheiden, mit wem sie ihre Daten teilen. Bei entsprechender Implementierung des Systems ist die Benutzung außerdem zumindest zeitweise unabhängig von zentralen Servern. Der Ausfall des Netzwerks oder einzelner Knoten ist von vornherein mit eingeplant. 
+
+In dieser Arbeit wird die Konzeption und Umsetzung einer Software beschrieben, die die Datenbank CouchDB verwendet. Mit CouchDB können Anwendungen umgesetzt werden, die sowohl \enquote{nach oben} als auch \enquote{nach unten} skalieren: Anwendungen sollen sich auf beliebig viele Knoten verteilen lassen, um Verfügbarkeit und \textit{Performance (Leistung)} zu gewährleisten. Sie sollen aber auch auf mobilen Endgeräten einsetzbar sein und Synchronisierung von Benutzerdaten ermöglichen \citelit{scalingdown}.
+
+
+
+
+
+\section{Aufbau der Arbeit}
+
+
+Zu Beginn wird die zentrale Fragestellung der Arbeit definiert (Kapitel \ref{chap:aufgabenstellung}). Das Ziel dieser Arbeit ist die fundierte Beantwortung dieser Frage. Um dies zu ermöglichen, wird in Kapitel \ref{chap:analyse} zunächst eine Einordnung des zu erstellenden Systems und eine Analyse der in Frage kommenden Lösungsmöglichkeiten vorgenommen. 
+
+Kapitel \ref{chap:couchdb} widmet sich der Datenbank CouchDB. In Abschnitt \ref{sec:theoretisch-couchdb} wird diese theoretisch eingeordnet, in Abschnitt \ref{sec:technisch-couchdb} werden die Umsetzungsdetails erklärt. In Kapitel \ref{chap:grundlagen} werden weitere Technologien vorgestellt, die in die Umsetzung der Anwendung eingeflossen sind. Beschrieben werden nacheinander die verwendeten Webtechnologien (Abschnitt \ref{sec:webtechnologien}), Cloud Computing (Abschnitt \ref{sec:cloud}) sowie die unterstützenden Werkzeuge (Abschnitt \ref{sec:werkzeuge}).
+
+Die Anforderungen an die Anwendung werden in Kapitel \ref{chap:systemanforderungen} spezifiziert. In Kapitel \ref{chap:systemarchitektur} wird die Struktur der Anwendung umrissen, auch hierbei werden verschiedene Designalternativen gegeneinander abgewogen. Die technischen Details des fertigen Systems sind in Kapitel \ref{chap:systemdokumentation} skizziert, ergänzt von Quelltextauszügen im Anhang. Eine Bedienungsanleitung für die Anwendung in Kapitel \ref{chap:anwendung} schließt den praktischen Teil der Arbeit ab. Eine Beurteilung des Ergebnisses der Arbeit wird abschließend in Kapitel \ref{chap:fazit} vorgenommen.
+
+\section{Textauszeichnung}
+
+
+Die Informatik ist ein Gebiet, in dem sich viele englische Begriffe im Deutschen eingebürgert haben. Für viele dieser englischen Begriffe gibt es noch keine Entsprechung, für manche werden in der Literatur unterschiedliche deutsche Übersetzungen verwendet. In dieser Arbeit wird dort, wo der englische Begriff im Deutschen üblicherweise verwendet wird, der englische Originalbegriff beibehalten. Eine Neuübersetzung von englischen Begriffen wurde bewusst vermieden. Eine deutsche Übersetzung ist für bessere Verständlichkeit beim ersten Auftreten des Begriffs in Klammern angegeben. Gibt es im Deutschen einen passenden Begriff, wird die englische Bedeutung beim ersten Auftreten des Begriffs in Klammern angegeben.
+
+Zur besseren Übersichtlichkeit und Lesbarkeit dieser Arbeit werden manche Begriffe besonders hervorgehoben. Im Text erklärte Fachbegriffe sowie Namen von eingesetzten Technologien werden bei ihrem ersten Auftreten \textit{kursiv} gesetzt. Bei erneutem Auftreten werden solche Begriffe nicht besonders ausgezeichnet. Im Abkürzungsverzeichnis im Anhang \ref{figure:abkuerzungen} können verwendete Abkürzungen nachgeschlagen werden. Begriffe aus dem Quelltext werden bei jedem Vorkommen durch die Verwendung der Schriftart {\fontfamily{pcr}\selectfont Courier} gekennzeichnet. Quelltextauszüge sind in einer \lstinline!Typewriter!-Schrift gesetzt, als Block gesetzte Quelltextauszüge sind außerdem hell hinterlegt und mit einem Rahmen versehen. Zitatblöcke sind rechts und links eingerückt. Zitate im Fließtext sind in \enquote{Apostrophe} gesetzt.
+
+

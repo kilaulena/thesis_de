@@ -1,0 +1,298 @@
+\chapter{Systemdokumentation}
+\label{chap:systemdokumentation}
+
+In diesem Kapitel wird das fertige Ergebnis der Umsetzung des im letzten Kapitel vorgestellten Systems beschrieben. Zu Beginn wird die Struktur des Programmcodes der Anwendung erläutert. Eine Gesamtübersicht über das System wird mithilfe eines Fachklassendiagramms und einer Einführung in das Routing-Schema und die Datenstrukturen vermittelt. Des Weiteren werden die Module vorgestellt, die zur Umsetzung von Benutzeroberfläche, Replikation, Konflikterkennung und -behandlung entwickelt wurden. Danach wird auf die Umsetzung der Testsuite eingegangen. 
+
+In Abschnitt \ref{sec:cloud} wurde bereits das für das Deployment verwendete Cloud Computing vorgestellt; den Abschluss dieses Kapitels bildet eine Darstellung, wie die Anwendung mit Cloud Computing und den Amazon Web Services deployt wurde. Abschließend wird das Clustering Framework CouchDB-Lounge vorgestellt, mit dem das Deployment im Hinblick auf Skalierbarkeit optimiert wurde.
+
+Im Rahmen dieser Arbeit kann nicht der gesamte Quelltext erklärt werden. Stattdessen werden die verschiedenen Ebenen des Systems vorgestellt. Nur technisch besonders schwierige oder signifikante Algorithmen oder Funktionen werden näher beleuchtet. Kürzere Quelltextauszüge finden sich zur Verdeutlichung im Text, längere im Anhang. 
+
+
+
+\section{Projektstruktur}
+
+Um einen Überblick über die Struktur des Programmcodes zu vermitteln, wird in diesem Abschnitt der Inhalt der einzelnen Verzeichnisse des Projekts geschildert. Auf die einzelnen Klassen und Funktionen wird dann in den folgenden Abschnitten näher eingegangen. Die allgemeine Bedeutung der Verzeichnisse wurde bereits in den Abschnitten \ref{subsec:designdokumente} und \ref{subsec:couchapp} erklärt.
+
+
+\begin{description}
+  \item[\_attachments:] Hier liegen die Teile der Anwendung, die direkt im Browser ausgeführt werden können, sowie die Startseite ({\fontfamily{pcr}\selectfont index.html}).
+    \begin{description}
+      \item[app:] Enthält die Fachklassen und die Datei {\fontfamily{pcr}\selectfont application.js}, in der das Routing Framework Sammy.js initialisiert wird. Hier werden alle Ressourcen aus den \textit{Helpern} und Fachklassen geladen. In der Initialisierungsfunktion {\fontfamily{pcr}\selectfont init}, die hier aufgerufen wird, wird Verhalten an Fenster-, Maus- und Tastaturereignisse gebunden. Des Weiteren wird hier die Replikation gestartet.
+        \begin{description}
+          \item[\_controllers:] Aufgabe der \textit{Controller} ist es, die in Abschnitt \ref{subsec:routes} vorgestellten Routen und ihr Verhalten zu definieren.
+          \item[\_helpers:] In \textit{Helpern} werden Funktionen ausgelagert, die keine Methoden von Fachklassen im engeren Sinne sind. Diese Funktionen sind hauptsächlich für Bereiche des Oberflächenverhaltens zuständig. Beispielsweise werden die in der {\fontfamily{pcr}\selectfont init}-Funktion verwendeten Tastaturereignisse hier definiert. Auch Funktionen zum Traversieren der Zeilen haben hier ihren Platz.
+          \item[\_lib:] Hier sind selbstgeschriebene Bibliotheken untergebracht, die JavaScript um Funktionalität erweitern. In {\fontfamily{pcr}\selectfont resources.js} sind Funktionen abstrahiert, mit denen von den Controllern aus die Lese- und Schreibzugriffe auf der Datenbank vorgenommen werden können. 
+          \item[\_models:] Hier werden die \enquote{Klassen} {\fontfamily{pcr}\selectfont Outline}, {\fontfamily{pcr}\selectfont Note} und {\fontfamily{pcr}\selectfont NoteCollection} definiert. Es handelt sich um \textit{Models} im Sinne von \textit{Object/Relational Mapping}. Sie werden in Abschnitt \ref{sec:datenstruktur} im Detail beschrieben. Außerdem werden hier die Funktionen zur Konflikterkennung, -präsentierung und -auflösung bestimmt.
+          \item[\_templates:] Als HTML-Dateien sind hier die Templates für das Template Engine Mustache.js gespeichert. Aus diesen Partials werden die Seiten zusammengebaut.
+          \item[\_views:] Es handelt sich hierbei nicht um CouchDB-Views, sondern um die Repräsentation der Models {\fontfamily{pcr}\selectfont Outline} und {\fontfamily{pcr}\selectfont Note} für die Fachlogik der Anwendung und zum Rendern. Bspw. eine {\fontfamily{pcr}\selectfont OutlineView} enthält ein {\fontfamily{pcr}\selectfont Outline}-Objekt und bereitet ihre Daten für die Mustache-Templates auf. Die Controller greifen nicht direkt auf die Models, sondern ausschließlich auf die View-Repräsentationen zu. Deutlich wird dies im Fachklassendiagramm in Abbildung \ref{figure:fachklassen}.
+        \end{description}
+        
+      \item[config:] In die Konfigurationsdatei {\fontfamily{pcr}\selectfont config.js} können die URLs der Anwendung für die Replikation sowie der Name der Datenbank eingetragen werden. Im Unterverzeichnis \textbf{features} finden sich Konfigurationsdateien für die Testumgebung.
+      \item[images:] Kleine Grafiken, die für das Layout benötigt werden, liegen hier bereit.
+      \item[spec:] Hier sind die Unit Tests sowie das Unit Test Framework abgelegt. Sie werden in Abschnitt \ref{subsec:unittests} beschrieben.
+      \item[style:] Enthält selbst erstellte und vom Blueprint Framework geerbte Stylesheets.
+    \end{description}
+  
+  \item[features:] In diesem Verzeichnis sind die Integration Tests enthalten. Sie werden in Abschnitt \ref{subsec:integrationtests} beschrieben.
+  \item[filters:] Hier liegen die Filterfunktionen, mit denen die Datenbank auf Änderungen und deren Konflikthaftigkeit überprüft werden kann.
+  \item[Rakefile:] Dieses enthält Makros, mit denen die Anwendung in bestimmte konflikthafte Zustände versetzt werden kann (Abschnitt \ref{subsec:hilfestellung}).
+  \item[README:] Eine Kurzfassung der Installationsanleitung (Abschnitt \ref{sec:installation}) und der Bedienungsanleitung (Abschnitt \ref{sec:bedienung}).
+  \item[vendor:] Die eingebundenen Bibliotheken sind in diesem Verzeichnis gespeichert. Die einzelnen JavaScript-Dateien müssen jeweils in einem {\fontfamily{pcr}\selectfont \_attachments}-Unterverzeichnis liegen, damit CouchDB sie ausführen kann.
+  \item[views:] Hier liegen die CouchDB-Views, mit denen die Daten aus der Datenbank aufbereitet angefordert werden können. Für die Anwendung werden Map-Funktionen aus insgesamt drei Views benötigt. 
+\end{description}
+
+
+Die Abbildung in Abschnitt \ref{subsec:fachklassendiagramm} zeigt ein Fachklassendiagramm, das einen Überblick über die zentralen Fachklassen bietet.
+
+
+
+
+\section{Routing}
+\label{subsec:routes}
+
+Im Folgenden wird das URL-Schema der Anwendung beschrieben. Dadurch wird auch das URL-Schema einer CouchApp sowie einer Anwendung mit dem Routing Framework Sammy.js deutlich. Diese Technologien wurden in Abschnitt \ref{subsec:couchapp} bzw. \ref{subsec:sammy} vorgestellt.
+
+Die Startseite ist unter der URL \url{http://localhost:5984/doingnotes/_design/doingnotes/index.html#/} zu finden. Nach dem Server und dem Port, unter dem die Anwendung zu erreichen ist, wird der Name der Datenbank angegeben. Das Präfix {\fontfamily{pcr}\selectfont \_design/} leitet ein Designdokument bzw. den Namen der Anwendung ein, die ebenfalls den Namen {\fontfamily{pcr}\selectfont doingnotes} trägt. Da die Datei {\fontfamily{pcr}\selectfont index.html} direkt im {\fontfamily{pcr}\selectfont \_attachments}-Verzeichnis des Designdokuments gespeichert ist, kann sie im Designdokument aufgerufen werden. Der Schrägstrich nach dem HTML-Anker leitet auf die Sammy-Route mit dem Pfad {\fontfamily{pcr}\selectfont\#/} weiter.
+
+In den Controllern sind weitere Routen definiert, die im Folgenden kurz erklärt werden. Die Route mit dem Pfad {\fontfamily{pcr}\selectfont\#/outlines} initialisiert eine neue {\fontfamily{pcr}\selectfont OutlinesView}, die eine Liste aller Outlines rendert. Der Aufruf von {\fontfamily{pcr}\selectfont\#/outlines/new} rendert das Formular, mit dem ein neues {\fontfamily{pcr}\selectfont Outline} erstellt werden kann. Die Route {\fontfamily{pcr}\selectfont\#/outlines/edit/:id} zeigt ein Formular, mit dem der Titel des Outlines geändert werden kann. Unter {\fontfamily{pcr}\selectfont\#/outlines/:id} wird das Outline angezeigt, hier ist der Gliederungseditor zu finden. Die weiteren Routen haben {\fontfamily{pcr}\selectfont PUT}, {\fontfamily{pcr}\selectfont POST} oder {\fontfamily{pcr}\selectfont DELETE} zur Methode und sind demnach für die Benutzer transparent.
+
+Die grundlegenden Datenbankoperationen \textit{Create}, \textit{Read}, \textit{Update} und \textit{Delete} wurden in dem von der Autorin erstellten Plugin {\fontfamily{pcr}\selectfont Resources.js} abstrahiert. So müssen diese immer wiederkehrenden Aufgaben nicht in jeder Route neu implementiert werden, sondern können teilweise für {\fontfamily{pcr}\selectfont Notes} und für {\fontfamily{pcr}\selectfont Outlines} wiederverwendet werden. In Listing \ref{code:resources} ist ein Auszug aus dem Plugin zu finden: Darin werden u.a. die Methoden {\fontfamily{pcr}\selectfont new\_object} und {\fontfamily{pcr}\selectfont load\_object\_view} definiert. {\fontfamily{pcr}\selectfont new\_object} nimmt den Typ des Objekts (z.\,B. {\fontfamily{pcr}\selectfont Outline}) und eine Callback-Funktion entgegen. Letztere wird ausgeführt, nachdem das Template für das entsprechende Objekt geladen wurde. {\fontfamily{pcr}\selectfont load\_object\_view} verlangt außerdem die ID des Objekts als Parameter. Das Dokument mit dieser ID wird von der Datenbank angefordert und ein View-Objekt dafür angelegt. Mit diesem kann z.\,B. ein Template gerendert werden, wie das folgende Beispiel, entnommen der Route {\fontfamily{pcr}\selectfont\#/outlines/edit/:id}, zeigt:
+
+\lstset{language=javascript}
+\medskip 
+\begin{lstlisting}[label=code:resources-apply, caption=Rendern des Templates zum Bearbeiten eines Outlines]
+load_object_view('Outline', '123', function(outline_view){
+  context.partial('app/templates/outlines/edit.mustache', outline_view, function(outline_view){
+    context.app.swap(outline_view);
+  });
+});
+\end{lstlisting}
+
+
+
+
+\section{Datenstrukturen}
+\label{sec:datenstruktur}
+
+Wie bereits in Abschnitt \ref{subsec:fachklassendiagramm} erläutert, handelt es sich bei den Fachklassen um JavaScript-Funktionen, die die Attribute als lokale Variablen speichern, die den Feldern der Datenbank entsprechen. Methoden werden implementiert, indem der Prototyp der Funktion um entsprechende Funktionen erweitert wird. Im Folgenden wird die Datenstruktur der Anwendung anhand des Aufbaus der CouchDB-Dokumente erläutert.
+
+
+\subsection{Outline}
+
+Ein {\fontfamily{pcr}\selectfont Outline} repräsentiert eine Datei, die im Gliederungseditor bearbeitet werden kann. Es enthält neben {\fontfamily{pcr}\selectfont\_id} und {\fontfamily{pcr}\selectfont\_rev} den Datentyp {\fontfamily{pcr}\selectfont Outline} sowie den Titel ({\fontfamily{pcr}\selectfont title}). Zeitstempel markieren die Erstellung ({\fontfamily{pcr}\selectfont created\_at}) und die letzte Änderung ({\fontfamily{pcr}\selectfont updated\_at}) des Dokuments. Letzterer wird erst angelegt, wenn der Titel des Dokuments geändert wurde. Die Zeitstempel werden mit dem Befehl \lstinline!new Date().toJSON()! bei der Erstellung des Objekts erzeugt. Sie werden zur zeitlichen Sortierung der Outlines in der Outline-Übersicht verwendet.
+
+\medskip 
+\begin{lstlisting}[label=code:outline-example, caption=Ein Outline-Dokument]
+{  "_id": "ce63ec5aaf501c567d200d89f200088a",
+   "_rev": "2-00899e40fef865bb3fa294cd72860b8f",
+   "created_at": "2010/07/04 12:12:52 +0000",
+   "updated_at": "2010/07/04 12:28:39 +0000",
+   "kind": "Outline",
+   "title": "My Shopping List" }
+\end{lstlisting}
+
+
+\subsection{Note}
+
+Ein {\fontfamily{pcr}\selectfont Note} repräsentiert die Zeile eines Outlines. Es enthält genau wie dieses die Felder {\fontfamily{pcr}\selectfont\_id}, {\fontfamily{pcr}\selectfont\_rev}, den Datentyp {\fontfamily{pcr}\selectfont Note}, {\fontfamily{pcr}\selectfont created\_at} und {\fontfamily{pcr}\selectfont updated\_at}. Die Zeitstempel werden hier für die Reihenfolge der Zeilen in einem Outline benutzt, wenn diese nach einer Replikation vom System festgelegt werden muss (s. Abschnitt \ref{subsec:appendconflict-implementierung}). 
+
+In dem Feld {\fontfamily{pcr}\selectfont text} ist der Inhalt der Zeile gespeichert. {\fontfamily{pcr}\selectfont source} wird für die Benachrichtigung nach Replikation benötigt (s. Abschnitt \ref{subsec:repl-impl}). Mithilfe des Felds {\fontfamily{pcr}\selectfont outline\_id} kann bestimmt werden, zu welchem Outline eine Zeile gehört. Die letzten drei Felder sind optional: {\fontfamily{pcr}\selectfont next\_id} und {\fontfamily{pcr}\selectfont parent\_id} werden zum Rendern der Baumstruktur in einem Outline benötigt. Dies wird in Abschnitt \ref{subsec:baum-rendern} näher erläutert. {\fontfamily{pcr}\selectfont first\_note} ist ein Boolean und damit das einzige Feld, dessen Datentyp kein String ist. Es markiert die erste Zeile eines Dokuments, damit diese beim Traversieren leichter gefunden werden kann.
+
+\medskip 
+\begin{lstlisting}[label=code:note-example, caption=Ein Note-Dokument]
+{
+   "_id": "ce63ec5aaf501c567d200d89f2001b08",
+   "_rev": "5-86d6c6ce0ad7b6b8454cbb91590e315c",
+   "created_at": "2010/07/04 12:14:35 +0000",
+   "updated_at": "2010/07/04 12:15:08 +0000",
+   "kind": "Note",
+   "text": "Hier ist Text der in einer Zeile eben so steht",
+   "source": "eb8abd1c45f20c0989ed79381cb4907d",
+   "outline_id": "ce63ec5aaf501c567d200d89f200088a",
+   "next_id": "ce63ec5aaf501c567d200d89f2002a87",
+   "parent_id": "ce63ec5aaf501c567d200d89f20015ab",
+   "first_note": true
+}
+\end{lstlisting}
+
+
+
+
+
+\section{Benutzeroberfläche}
+
+In diesem Abschnitt wird die Umsetzung der Benutzeroberfläche in Auszügen beschrieben. Eingegangen wird nacheinander auf die Implementierung des Gliederungseditors, die Operationen Speichern, Einfügen und Einrücken der Zeilen, deren Auswirkungen auf DOM und Datenbank, sowie das Rendern der Zeilen nach dem Neuladen des Outlines.
+
+
+
+\subsection{Umsetzung des Gliederungseditors}
+
+Im DOM ist der Gliederungseditor als ein {\fontfamily{pcr}\selectfont <div>}-Element dargestellt, das eine unsortierte Liste enthält (siehe Listing \ref{code:outline-partial}). Die {\fontfamily{pcr}\selectfont <li>}-Elemente der Liste entsprechen den Zeilen. Hat eine Zeile Kindknoten, also liegen unter ihr eingerückte Zeilen, wird in ihr {\fontfamily{pcr}\selectfont <li>} ein weiteres {\fontfamily{pcr}\selectfont <ul>} eingefügt, das wiederum weitere {\fontfamily{pcr}\selectfont <li>}-Elemente enthält. Das Ergebnis einer solchen Einrückungsoperation ist in Listing \ref{code:outline-indent} zu finden.
+
+\lstset{language=html}
+\medskip 
+\begin{lstlisting}[label=code:outline-partial, caption=Das Template für den Gliederungseditor in Mustache-Syntax]
+<div id="writeboard">
+  <ul id="notes">
+    {{#notes}}
+      <li class="edit-note" id="edit_note_{{_id}}">
+        <form class="edit-note" action="#/notes/{{_id}}" method="put">
+          <span class="space">&nbsp;</span>
+          <a class="image">&nbsp;</a>
+          <textarea class="expanding" id="edit_text_{{_id}}" name="text">{{text}}</textarea>
+          <input type="submit" value="Save" style="display:none;"/>
+        </form>
+      </li>
+    {{/notes}}
+  </ul>
+</div>
+\end{lstlisting}
+
+
+\subsection{Modifizierung des DOM}
+
+Die Initialisierungsfunktion bindet bestimmtes Verhalten an die Textareas, die die Zeilen des Gliederungseditors repräsentieren. Wenn bestimmte Fenster-, Maus- und Tastaturereignisse eintreten, wird das Verhalten ausgelöst. Dadurch wird das Speichern, Einfügen und Einrücken der Zeilen umgesetzt. 
+
+Eine Zeile soll immer dann gespeichert werden, wenn der Maus-Fokus sie verlässt, egal, ob das durch eine Funktionstaste, die Maus oder das Schließen des Fensters geschieht. Sie soll dann nicht gespeichert werden, wenn sich der Zeileninhalt gegenüber dem in der Datenbank gespeicherten Text nicht verändert hat. Dies wird über ein Custom Data Attribute realisiert, wie es in Abschnitt \ref{subsec:html5} beschrieben wurde. Wenn in die Zeile hineinnavigiert wird, wird auf dem {\fontfamily{pcr}\selectfont NoteElement}, also der Repräsentation einer Zeile im DOM, die Methode {\fontfamily{pcr}\selectfont setDataText} aufgerufen. Darin wird der momentane Inhalt der Zeile gespeichert. Mit diesem Wert wird der Text beim Verlassen der Zeile verglichen. Sind die beiden Werte gleich, muss die Zeile nicht gespeichert werden. 
+
+Wird die Eingabetaste gedrückt, während sich der Fokus in einer Zeile befindet, wird in der Methode {\fontfamily{pcr}\selectfont insertNewNote} ein neues Note-Objekt erzeugt. In der Callback-Funktion wird das Partial für die neue Zeile mit den Werten gefüllt und mit einer jQuery-Methode in das DOM eingefügt. Außerdem werden mehrere Zeiger angepasst, wie bereits in Abschnitt \ref{subsec:baumumsetzung} beschrieben: Die {\fontfamily{pcr}\selectfont next\_id} der Zeile, an die die neue Zeile angehängt wurde, und ggf. auch die {\fontfamily{pcr}\selectfont parent\_id}s der Nachfolger müssen den Modifikationen im DOM Folge leisten.
+
+Ähnliches geschieht beim Ein- oder Ausrücken von Zeilen: Auch hier müssen die Zeiger von vor- und nachstehenden Zeilen sowie ggf. die des Elternknoten und seiner Nachfolger angepasst werden. Im ungünstigsten Fall zieht das Einrücken eines Knotens bis zu zwei weitere Schreibzugriffe nach sich. Im DOM wird beim Einrücken das {\fontfamily{pcr}\selectfont <li>}-Element der Zeile in ein {\fontfamily{pcr}\selectfont <ul>} gehüllt und in den neuen Elternknoten eingefügt.
+
+
+
+\subsection{Rendern der Baumstruktur}
+\label{subsec:baum-rendern}
+
+
+Im vorangegangenen Abschnitt wurde skizziert, was beim Interagieren mit dem Gliederungseditor mit dem DOM und der Datenbank geschieht. Wird ein Outline aber geöffnet oder neu geladen, müssen alle seine Zeilen auf einmal gerendert werden. Dazu werden alle Zeilen des Outlines auf einmal aus der Datenbank geladen. Dies wurde in Abschnitt \ref{subsec:viewabfrage} beschrieben. Im resultierenden Array der Zeilen wird die erste Zeile bestimmt; sie ist durch ein spezielles Attribut gekennzeichnet. Ausgehend von dieser wird mithilfe einer rekursiven Funktion der Baum traversiert. \textit{Traversierung} bezeichnet \enquote{das Untersuchen der Knoten des Baums in einer bestimmten Reihenfolge} \citelit[Kap. 2.3]{knuth}. Dabei werden alle Knoten systematisch untersucht, so dass jeder Knoten genau einmal besucht wird. Nach einer kompletten Traversierung liegt ein lineares Abbild der Knoten vor. 
+
+Die Funktion {\fontfamily{pcr}\selectfont renderNotes} erhält das Array mit allen Zeilen des Outlines und einen Zähler. Der Zähler hat zu Beginn den Wert der Länge des Arrays und wird bei jedem Durchlauf um eins dekrementiert. Außerdem wird die gerade untersuchte Zeile aus dem Array gelöscht. Nacheinander wird überprüft, ob die aktuelle Zeile einen Kindknoten oder einen Next-Zeiger hat. Wenn ja, wird diese Zeile ins DOM eingefügt und {\fontfamily{pcr}\selectfont renderNotes} erneut aufgerufen. Wenn eine Zeile weder Kindknoten noch Next-Zeiger besitzt, ist die letzte Zeile des Outlines erreicht und die Funktion ist beendet. Die Funktion ist in Listing \ref{code:rendernotes} dokumentiert.
+
+In einem gerenderten Baum können Zeilen ein- und ausgeklappt werden. Das Einklappen der Kindknoten einer Zeile wird durch Ausblenden der Kindknoten realisiert. Außerdem wird das am Anfang der Zeile als Aufzählungszeichen eingeblendete Dreieick um 90 Grad gedreht. Das Einklappen einer Zeile wird nicht in der Datenbank persistiert.
+
+
+
+
+
+
+
+
+
+\section{Replikation}
+\label{subsec:repl-impl}
+
+Die Funktionen, mit denen die Replikation gesteuert wird, sind im Plugin {\fontfamily{pcr}\selectfont ReplicationHelpers} enthalten. Sie werden in diesem Abschnitt vorgestellt. 
+
+
+\subsection{Starten der Replikation}
+
+Durch den Aufruf der Funktionen {\fontfamily{pcr}\selectfont replicateUp} und {\fontfamily{pcr}\selectfont replicateDown} kann eine Continuous Replication zum bzw. vom Server gestartet werden. Die beiden Funktionen sind gleich aufgebaut, nur sind Quelle und Ziel gegengleich gesetzt:
+
+\lstset{language=javascript}
+\medskip 
+\begin{lstlisting}[caption=Die Funktion {\fontfamily{pcr}\selectfont replicateUp}]
+replicateUp: function(){
+  $.post(config.HOST + '/_replicate', 
+    '{"source":"' + config.DB + '", "target":"' + config.SERVER + '/' + config.DB + '", "continuous":true}',
+    function(){
+      Sammy.log('replicating to ', config.SERVER)
+    },"json");
+}
+\end{lstlisting}
+
+
+Beide Funktionen werden in der Initialisierungsfunktion aufgerufen, wodurch die Replikation bei jedem manuellen Reload der Seite neu gestartet wird. Läuft sie bereits, wird der Befehl einfach ignoriert. Auf diese Weise kann die Replikation nach einer unterbrochenen Internetverbindung wieder aufgenommen werden. Die URLs und Ports von Client und Server werden in der Datei {\fontfamily{pcr}\selectfont config.js} angegeben.
+
+
+\subsection{Benachrichtigung bei Änderungen}
+\label{subsec:nochanges}
+
+
+In den Systemanforderungen wurde festgelegt, dass Benutzer über durch Replikation hervorgerufene Änderungen benachrichtigt werden sollen, ohne in ihrem Arbeitsfluss unterbrochen zu werden. Die Seite, in die der Gliederungseditor eingebettet ist, enthält ein Element, in dem die Replikationsmeldung steht. Das Element ist üblicherweise ausgeblendet, es wird nur beim Vorliegen von Änderungen sichtbar gemacht. Wird dann dem darin enthaltenen Link gefolgt, wird die Seite neu geladen und die neue Version des Outlines angezeigt.
+
+\lstset{language=html}
+\medskip 
+\begin{lstlisting}[caption=Benachrichtigung über Änderungen]
+<h3 style="display:none;" id="change-warning">Replication has brought updates. <a href="javascript: window.location.reload();">View them.</a></h3>
+\end{lstlisting}
+
+Um das Vorliegen von Änderungen festzustellen, wird bei jedem Speichern einer Zeile das Feld {\fontfamily{pcr}\selectfont source} neu gesetzt. Es erhält den Hash des Rückgabewerts von {\fontfamily{pcr}\selectfont window.location.host}. Dieser String ermöglicht es, die URL und den Port des Systems, auf dem die Zeile geändert wurde, eindeutig zu identifizieren. Durch das Hashen wird verhindert, dass personenbezogene Daten gespeichert werden. 
+
+Wenn ein Outline angezeigt wird, wird die Funktion {\fontfamily{pcr}\selectfont checkForUpdates} auf dem Outline aufgerufen. Darin werden der Changes-Feed abgefragt und mit dem Filter in Listing \ref{code:changesfilter} alle Zeilen mit fremder {\fontfamily{pcr}\selectfont source} herausgefiltert. Wenn der Hash des eigenen Hostnamen \enquote{848c7} ist, geschieht dies mit dem Aufruf von \url{http://localhost:5984/doingnotes/\_changes?filter=doingnotes/changed&source=848c7}.
+
+\lstset{language=javascript}
+\medskip 
+\begin{lstlisting}[label=code:changesfilter, caption=Der {\fontfamily{pcr}\selectfont changed}-Filter für den Changes-Feed]
+function(doc, req) {
+  if(doc.kind == 'Note' && doc.source != req.query.source) {
+    return true;
+  }
+  return false;
+}
+\end{lstlisting}
+
+Dieser Aufruf hat zum Ziel, die Sequenznummer der Datenbank zum Zeitpunkt der letzten fremden Änderung zu bekommen, denn Änderungen sind erst ab diesem Zeitpunkt als neu zu bewerten (vgl. Abschnitt \ref{subsec:change-notif}). Die Sequenznummer wird in der Variablen {\fontfamily{pcr}\selectfont since} gespeichert. Dann wird ein neuer XMLHttpRequest abgeschickt, der die Datenbank ab diesem Zeitpunkt auf Änderungen überwacht. Mit angegeben werden muss der {\fontfamily{pcr}\selectfont heartbeat}-Parameter, damit CouchDB in Intervallen der angegebenen Millisekunden Zeilenumbruch-Zeichen schickt. So wird verhindert, dass der Browser fälschlicherweise einen Timeout feststellt. Der {\fontfamily{pcr}\selectfont feed=continuous}-Parameter ermöglicht das Offenhalten der HTTP-Verbindung, so dass ähnlich wie bei Continuous Replication Änderungen fortlaufend gesendet werden.
+
+Bei der Sequenznummer \enquote{142} geht die Anfrage an die Adresse \url{http://localhost:5984/doingnotes/\_changes?filter=doingnotes/changed&source=848c7&feed=continuous\ &heartbeat=5000&since=142}. Sobald der übermittelte ResponseText eine Dokumentenrevision mit einem {\fontfamily{pcr}\selectfont changes}-Attribut enthält, wird dieses Dokument geöffnet und die oben beschriebene Benachrichtigungsmeldung eingeblendet. Die Funktion, die das hier beschriebene Verfahren umsetzt, ist in Listing \ref{code:changesfeed} dokumentiert.
+
+Gegen die Benutzung des Changes-Feeds im {\fontfamily{pcr}\selectfont feed=continuous}-Modus spricht, dass momentan nur der Browser Firefox diese Option sicher unterstützt. Andere gängige Browser ignorieren diese Option oder reagieren mit fehlerhaften Ausgaben. Da sich dies mit zukünftigen Releases anderer Browser zu ändern verspricht, wurde diese Einschränkung in Kauf genommen. 
+
+
+
+
+
+
+
+\section{Konflikterkennung}
+\label{subsec:konflikterkennung}
+
+
+Die Datenbank muss nicht nur auf Änderungen, sondern auch auf Konflikte überwacht werden. Auch hier sollte der Benutzer unmittelbar benachrichtigt werden, damit Konflikte möglichst zeitnah gelöst werden können.
+
+Das Modul {\fontfamily{pcr}\selectfont ConflictDetector} ist, ebenso wie der im nächsten Abschnitt vorgestellte {\fontfamily{pcr}\selectfont Con\-flictResolver}, als Singleton implementiert. Die Methode {\fontfamily{pcr}\selectfont checkForNewConflicts} benutzt, wie im vorangehenden Abschnitt beschrieben, den Changes-Feed im Continuous-Modus, um Änderungen zu überwachen. Die Filterfunktion wird hier benutzt, um konflikthafte Zeilen herauszufiltern. Wenn eine Zeile mit einem {\fontfamily{pcr}\selectfont \_conflicts}-Array gefunden wird, und ihre {\fontfamily{pcr}\selectfont outline\_id} mit der aktuell angezeigten Outline übereinstimmt, wird die erste konflikthafte Revision der Zeile geladen. Die Konfliktart wird identifiziert, und die beiden konkurrierenden Revisionen der Zeilen werden dem {\fontfamily{pcr}\selectfont ConflictResolver} bzw. dem {\fontfamily{pcr}\selectfont ConflictPresenter} zur weiteren Bearbeitung übergeben. 
+
+Wenn Konflikte nicht direkt gelöst werden, sollen sie auch nach einem erneuten Öffnen des Outlines angezeigt werden. Diese Konflikte werden deshalb vom {\fontfamily{pcr}\selectfont ConflictDetector} zwischengespeichert. Beim Öffnen des Outlines wird die Methode {\fontfamily{pcr}\selectfont checkForNewConflicts} aufgerufen; in dieser wird geprüft, ob die gespeicherten Konflikte zum aktuellen Outline gehören, und ggf. an den {\fontfamily{pcr}\selectfont ConflictPresenter} weitergereicht. Eine Hürde für die Umsetzung dieser Anforderung bestand darin, dass eine Änderung im {\fontfamily{pcr}\selectfont \_conflicts}-Array eines Dokuments bislang keine Änderung für den Changes Feed von CouchDB darstellte. Daher musste zur Umsetzung dieses Features ein Patch für den Changes Feed geschrieben werden. Dieser Patch \cite{jira:changesfeed} ist in Abschnitt \ref{subsec:changes-patch} und in \cite{github:changesfeed} dokumentiert. 
+
+
+
+
+
+
+
+\section{Konfliktbehandlung}
+
+Im Prototypen der Anwendung werden zwei unterschiedliche Konfliktarten behandelt: Append-Konflikte und Write-Konflikte. Diese sind in Abschnitt \ref{sec:konfliktbehandlung} definiert. Im Folgenden wird die Umsetzung der Aufbereitung und Lösung beider Konfliktarten sowie deren Mischform beschrieben.
+
+
+\subsection{Append-Konflikte}
+\label{subsec:appendconflict-implementierung}
+
+Der {\fontfamily{pcr}\selectfont ConflictDetector} überprüft die beiden konkurrierenden Revisionen eines konflikthaften Dokuments auf die Art der Änderung. Unterscheiden sich die Revisionen in der {\fontfamily{pcr}\selectfont next\_id}, liegt ein Append-Konflikt in der darauffolgenden Zeile vor. Dieser Konflikt kann von der Anwendung selbst gelöst werden. Dazu werden die beiden Revisionen dem {\fontfamily{pcr}\selectfont ConflictResolver} übergeben. In der Methode {\fontfamily{pcr}\selectfont solve\_conflict\_by\_sorting} lädt dieser die Zeilen, die den beiden konflikthaften Revisionen folgen. Diese werden zeitlich sortiert nacheinander in die Baumstruktur eingefügt. Als Resultat dieser Operation stehen sie also direkt untereinander. Die Zeiger in den umliegenden Zeilen werden ebenfalls so angepasst, dass sie den neuen Baum korrekt wiederspiegeln. 
+
+Auf der Benutzeroberfläche werden die Zeilen entsprechend ihrer Reihenfolge automatisch ins DOM eingebaut. Außerdem wird für einige Sekunden die Meldung \enquote{\textit{Replication has automatically solved updates.}} eingeblendet. Die veränderten Zeilen werden kurz hellgrün hinterlegt.
+
+
+\subsection{Write-Konflikte}
+\label{subsec:writeconflict-implementierung}
+
+Stellt der {\fontfamily{pcr}\selectfont ConflictDetector} fest, dass der Text der konkurrierenden Zeilen voneinander abweicht, handelt es sich um einen Write-Konflikt. Die beiden Revisionen werden an die Funktion  {\fontfamily{pcr}\selectfont showWriteConflictWarning} im {\fontfamily{pcr}\selectfont ConflictPresenter} weitergereicht. Diese hinterlegt die konflikthaften Zeilen hellrot und blendet, ähnlich wie nach einem automatisch erfolgten Replikationsvorgang, eine Benachrichtigung ein: 
+
+\lstset{language=html}
+\medskip 
+\begin{lstlisting}[caption=Benachrichtigung über konflikthaften Status der Datenbank]
+<h3 style="display:none;" id="conflict-warning">Replication has caused one or more conflicts. <a href="/doingnotes/_design/doingnotes/index.html#/outlines/{{outline_id}}?solve=true">Solve them.</a></h3>
+\end{lstlisting}
+
+Die Benachrichtigung enthält einen Link zum aktuellen Outline mit dem Parameter {\fontfamily{pcr}\selectfont solve=true}. Wird das Outline mit diesem Parameter geladen, wird der {\fontfamily{pcr}\selectfont ConflictPresenter} wieder aktiviert. In der Methode {\fontfamily{pcr}\selectfont showConflicts} werden mithilfe einer CouchDB-View alle konflikthaften Zeilen für das aktuelle Outline geladen. Für jede Zeile werden wieder die beiden konkurrierenden Revisionen von der Datenbank angefordert. Dann wird im DOM die Textarea jeder konflikthaften Zeile durch ein Partial ersetzt, das den Text der beiden Revisionen für den Benutzer zur Auswahl anbietet. Die Textarea wird dabei durch zwei Formulare ersetzt, die jeweils den Text einer Revision enthalten. Jedes Formular enthält einen Speicherbutton, der einen {\fontfamily{pcr}\selectfont PUT}-Request auf die Route {\fontfamily{pcr}\selectfont\#/notes/solve/:id} auslöst. Im Callback der Route wird der {\fontfamily{pcr}\selectfont ConflictResolver} angewiesen, mithilfe der Funktion {\fontfamily{pcr}\selectfont solve\_conflict\_by\_deletion} eine neue Revision der Zeile anzulegen, die den vom Benutzer ausgewählten und evtl. manuell geänderten Text enthält. Diese Revision wird gespeichert und die beiden alten Revisionen werden gelöscht. 
+
+Sind mehrere Konflikte zu lösen, löst das Speichern einer der Versionen der Zeile aus, dass die beiden Formulare verschwinden und durch eine gewöhnliche Zeile mit Textarea ersetzt werden. Mit dem Lösen des letzten Konflikts wird die Seite ohne den Parameter {\fontfamily{pcr}\selectfont solve} neu geladen. Damit wird auch die während des Lösens der Write-Konflikte ausgesetzte Überwachung nach Konflikten neu gestartet.
+
+
+
+
+\subsection{Kombination aus beiden Konfliktarten}
+
+Es kann der Fall auftreten, dass gleichzeitig der Text einer Zeile geändert und außerdem nach ihr eine Zeile eingefügt wird. In diesem Fall wird zuerst der Append-Konflikt wie oben beschrieben gelöst. Danach wird der Write-Konflikt künstlich erneut erzeugt. Dies wird über die {\fontfamily{pcr}\selectfont bulkSave}-Methode von CouchDB realisiert. Wird ein Dokument auf diese Weise und mit Angabe des Parameters {\fontfamily{pcr}\selectfont all\_or\_nothing:true} gespeichert, akzeptiert CouchDB die Änderung auch dann, wenn durch sie die Datenbank in einen konflikthaften Zustand gerät. Dann wird zusätzlich zu der Benachrichtigung über den gelösten Append-Konflikt auch der Hinweis über einen zu lösenden Write-Konflikt eingeblendet. 
+
+

@@ -1,0 +1,18 @@
+\chapter{Aufgabenstellung}
+\label{chap:aufgabenstellung}
+
+In der Einleitung wurde auf die veränderten Gegebenheiten und erhöhten Ansprüche an Anwendungsprogramme in der heutigen Zeit (Juni 2010) hingewiesen. Mehr Menschen nutzen gleichzeitig mit immer mehr mobilen Endgeräten immer größere Systeme und stellen dabei immer höhere Ansprüche an Benutzbarkeit und Verfügbarkeit.
+
+Gleichzeitig schreitet die Entwicklung von Technologien voran, mit der diese gestiegenen Anforderungen immer besser umgesetzt werden können. Im Bereich der Datenbanksysteme entwickelte sich im letzten Jahrzehnt eine \enquote{Bewegung} mit dem Namen \textit{NoSQL} \cite{nosql:strozzi}. NoSQL ist eine nicht näher eingegrenzte Bezeichnung für eine Reihe nichtrelationaler Datenbanksysteme bzw. \textit{Key-Value-Stores}. Sie haben gemeinsam, dass sie im Gegensatz zu relationalen Datenbanken meist keine festen Tabellenschemata benötigen. Besonderen Schwerpunkt setzen sie auf Verteilbarkeit und eignen sich dadurch meist für die Skalierung im großen Maßstab. Die Vorzüge traditioneller Datenbanksysteme, insbesondere die Konsistenz zu jedem Zeitpunkt, werden oft gegen eine bessere Verfügbarkeit oder Partitionstoleranz (s. Abschnitt \ref{subsec:cap}) getauscht.
+
+Diese neuen Datenbanksysteme wurden jeweils für spezifische Anwendungsfälle entwickelt. Ein umfassender Vergleich von NoSQL-Datenbanksystemen ist nicht Gegenstand dieser Arbeit. Stattdessen soll die Einsetzbarkeit eines bestimmten NoSQL-Datenbanksystems anhand eines konkreten Anwendungsfalles überprüft werden. Kann nach eingehender Analyse mit der ausgewählten Technologie eine funktionsfähige Software umgesetzt werden?
+
+Die dokumentenorientierte Datenbank CouchDB \cite{couch:homepage} wurde in der Einleitung bereits kurz vorgestellt. Bei einer mit CouchDB implementierten Anwendung kann der Einsatz von \textit{Middleware} völlig entfallen. \textit{Master-Master-Replikation} ist eine Kernfunktion, was CouchDB besonders geeignet für verteiltes Arbeiten macht. CouchDB-Anwendungen laufen direkt aus dem Webbrowser heraus, deshalb ist die Anzahl der für den Betrieb zu installierenden Programme minimal. So kann das System auf einer möglichst hohen Anzahl von Endgeräten eingesetzt werden. Die Wahl gerade dieses Datenbanksystems wird in den Kapiteln \ref{chap:analyse} und \ref{chap:couchdb} genauer begründet. 
+
+Als Anwendungsfall für den Einsatz von CouchDB wurde ein \textit{Outliner (Gliederungseditor)} gewählt. Mit einem Outliner können z.\,B. Gedanken oder Konzepte hierarchisch geordnet aufgeschrieben werden. Als Vorlage dient das Programm OmniOutliner \cite{omnioutliner:website}, ein lokales Desktop-Programm für Mac OS X. Ziel ist, einen Gliederungseditor mit ähnlicher, aber eingeschränkter Funktionalität prototypisch zu erstellen und dadurch die Einsetzbarkeit von CouchDB zu analysieren.
+
+Die hier konzipierte Anwendung unterscheidet sich in einem zentralen Punkt von der Vorlage: Mit ihr soll gemeinschaftliches Arbeiten an Dokumenten auch verteilt über Netzwerke ermöglicht werden, selbst wenn der Benutzer zwischenzeitlich vom Internet getrennt ist. Die für die Arbeit erstellte Anwendung wird lokal im Browser laufen und offline benutzbar sein. Über eine Internetverbindung werden Daten von mehreren Benutzern gleichzeitig bearbeitet werden können.
+
+In dieser Diplomarbeit soll also untersucht werden, ob sich CouchDB dafür eignet, verteilte Anwendungen zu erstellen. Um dies zu prüfen, wird der Prototyp eines verteilten Gliederungseditors entworfen und umgesetzt. 
+
+

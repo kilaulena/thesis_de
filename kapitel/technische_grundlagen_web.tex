@@ -1,0 +1,341 @@
+\chapter{Technische Grundlagen}
+\label{chap:grundlagen}
+
+In diesem Kapitel werden zunächst die einzelnen Webtechnologien dargestellt, die in die Anwendung eingeflossen sind. Anschließend wird auf die Hintergründe von Cloud Computing eingegangen, das zum Deployment der Anwendung verwendet wurde. Der letzte Abschnitt stellt die Methoden und Mittel dar, die zur Entwicklung der Anwendung unterstützend beigetragen haben. 
+
+
+\section{Webtechnologien}
+\label{sec:webtechnologien}
+
+Die Interaktionsmöglichkeiten mit der Oberfläche der zu erstellenden Anwendung fallen gering aus. Der Einsatz eines aufwändigen View Frameworks ist deshalb nicht notwendig; die Umsetzung kann mit den vergleichsweise einfachen Technologien, Frameworks und Programmiersprachen erfolgen, die hier im Einzelnen vorgestellt werden. 
+
+
+\subsection{CouchApp}
+\label{subsec:couchapp}
+
+Die zu entwickelnde Anwendung wird als sogenannte CouchApp \cite{couch:couchapp} umgesetzt. Das Projekt CouchApp stellt eine Reihe von unterstützenden Komponenten zur Verfügung, die die Entwicklung einer Standalone-Anwendung mit CouchDB erleichtern. Das Design sieht vor, dass jeder Benutzer eine eigene CouchDB-Instanz offline auf seinem Endgerät installiert hat, in der die Anwendung läuft. Dadurch ist die Verfügbarkeit auch ohne Internetanbindung gegeben.
+
+Damien Katz, der Urheber von CouchDB, erklärt in \cite{couchapp:interview} CouchApps in folgenden Worten:
+
+\begin{quote}
+CouchDB, being an HTTP server, can host applications directly, so you can write applications and forward the HTML, CSS, and JavaScript through CouchDB. When you point your browser at it, the browser comes alive and starts the JavaScript. It becomes interactive as you query and update the server and everything. When everything is served from CouchDB, that's a CouchApp and you can replicate it around, just like the data. 
+\end{quote}
+
+Eine CouchApp kann auf dem lokalen Rechner, einem Mobiltelefon, einem lokalen Server oder in der Cloud deployt sein, immer wird sie über einen Browser angesprochen. Durch Replikation können die Daten und auch das Programm immer wieder auf einen Stand gebracht werden.
+
+Nach der Installation von CouchApp (erklärt in Abschnitt \ref{subsec:deployment}) kann das Gerüst für eine neue Beispiel-Applikation von der Kommandozeile mit dem Befehl \lstinline!couchapp generate example-couchapp! erzeugt werden. Dies generiert ein Verzeichnis {\fontfamily{pcr}\selectfont example-couchapp}, das eine Verzeichnisstruktur vorgibt (s. Abb. \ref{fig:example-couchapp}). Dieses Verzeichnis entspricht einem CouchDB-Designdokument, wie es in Abschnitt \ref{subsec:designdokumente} beschrieben ist.
+
+\medskip
+\begin{figure}[ht] 
+ \begin{center}
+   \includegraphics[width=0.45\textwidth]{grafik/example-couchapp} 
+ \end{center}
+ \caption{Generierte Beispiel-Couchapp}
+ \label{fig:example-couchapp} 
+\end{figure}
+
+Das Verzeichnis {\fontfamily{pcr}\selectfont \_attachments} enthält alle JavaScript-, HTML- und CSS-Dateien, die für Anwendungslogik und Darstellung benötigt werden. In der Beispiel-Anwendung ist eine einfache HTML-Startseite sowie ein Stylesheet vorgegeben. Die Verzeichnisse {\fontfamily{pcr}\selectfont lists}, {\fontfamily{pcr}\selectfont show}, {\fontfamily{pcr}\selectfont views} und {\fontfamily{pcr}\selectfont filters} enthalten entsprechend die List-, Show- bzw. Filter-Funktionen von CouchDB bzw. die Views. Im {\fontfamily{pcr}\selectfont vendor}-Verzeichnis werden externe Bibliotheken abgelegt, die für die Entwicklung benötigt werden. 
+
+Die Einstellungen für das Deployment werden in der Datei {\fontfamily{pcr}\selectfont .couchapprc} vorgenommen. Diese ist folgendermaßen formatiert:
+
+\lstset{language=javascript}
+\medskip
+\begin{lstlisting}[label=code:couchapprc,caption=Couchapp: .couchapprc]
+{
+  "env": { 
+    "default": {
+      "db": "http://user:password@localhost:5984/example-couchapp-dev"
+    },
+    "production": {
+      "db": "http:///user:password@example.com/example-couchapp"
+    }
+  }
+}
+\end{lstlisting}
+
+
+Dabei müssen für die Entwicklungs- und ggf. Produktionsumgebung Benutzername und Passwort des CouchDB-Administrators angegeben werden. Diese Information kann weggelassen werden, wenn sie nicht gesetzt sind. Mit dem Befehl \lstinline!couchapp push! bzw. \lstinline!couchapp push production! wird der Inhalt des CouchApp-Verzeichnisses in die CouchDB-Instanz kopiert.
+
+Das URL-Schema einer CouchApp wird in Abschnitt \ref{subsec:routes} erläutert. In Abschnitt \ref{subsec:deployment} wird erklärt, wie die in der Arbeit erstellte Anwendung mithilfe von CouchApp deployt wird. 
+
+
+\subsection{HTML5}
+\label{subsec:html5}
+
+\textit{HTML (Hypertext Markup Language)} ist das Hypertextformat im World Wide Web. \textit{HTML5} \cite{html5:homepage} ist eine vom W3C entworfene Spezifikation, die in Zukunft die bisherigen HTML- und XHTML-Standards ersetzen soll. HTML5 wird mittlerweile von den meistbenutzten Browsern in den aktuellsten Versionen weitgehend unterstützt, mit der Ausnahme des Microsoft Internet Explorer \cite{html5:browser}. Diese Einschränkung verhindert bisher noch die Entwicklung der meisten Webanwendungen, da im Normalfall auf ältere oder nicht standardkonforme Browser Rücksicht genommen werden muss. 
+
+Wegen in Abschnitt \ref{subsec:nochanges} näher ausgeführten Einschränkungen ist die Anwendung auf den Browser Firefox ab der Version 3.6 festgelegt (siehe Release Notes \cite{firefox36}). Dies erlaubt es, auch bei zentralen Anwendungseigenschaften auf die Funktionen zuzugreifen, die HTML5 mit sich bringt. So bietet HTML5 neben vielen Verbesserungen die Möglichkeit, \textit{Custom Data Attributes} zu definieren. Diese Technik wird in der Arbeit verwendet und wird deshalb kurz erklärt. 
+
+Laut Spezifikation \cite{html5:data} ist ein Custom Data Attribute ein Attribut ohne Namespace, dessen Name mit dem String {\fontfamily{pcr}\selectfont data-} beginnt und nach dem Bindestrich mindestens einen Buchstaben hat, der keine Großbuchstaben enthält. In Custom Data Attributes können eigene private Daten für die Seite oder die Anwendung gespeichert werden, wenn es keine passenden Attribute oder Elemente dafür gibt. Die Attribute sind dafür gedacht, von den eigenen Skripten der Seite benutzt zu werden, nicht als öffentlich nutzbare Metadaten. Jedes HTML-Element kann beliebig viele Custom Data Attributes haben.
+
+
+\subsection{JavaScript}
+
+JavaScript ist eine vielseitige Skriptsprache, deren Assoziation mit dem Webbrowser sie zu \enquote{einer der populärsten Programmiersprachen der Welt} macht \citelit[S. 2]{javascript:goodparts}. Über das \textit{DOM (Document Object Model)} \cite{dom:website} können mit JavaScript Objekte eines HTML-Dokuments direkt im Browser angesprochen werden. JavaScript ist eine dynamische, objektorientierte Programmiersprache, die ein prototypenorientiertes Paradigma verfolgt.
+
+Am weitesten verbreitet ist der Einsatz von JavaScript zur Aufwertung der User Experience. Webseiten werden dabei mit clientseitigen Funktionalitäten \enquote{angereichert}, sind aber auch ohne JavaScript benutzbar. JavaScript kann ebenso als vollwertige Sprache serverseitig eingesetzt werden. Dabei wird Objektorientierung, anders als beispielsweise in Java oder C, durch Prototypen anstatt durch Klassen umgesetzt.
+
+Im Folgenden werden der JavaScript-Bestandteil JSON, das Konzept AJAX sowie die Bibliothek jQuery vorgestellt.
+
+
+\subsubsection{JSON}
+\label{subsec:json}
+
+\textit{JSON (JavaScript Object Notation)} ist das populärste Format, um in JavaScript Informationen auszutauschen \citelit[Kap. 2]{json:javascript}. JSON ist ein Subset von JavaScript \cite{json:rfc}, es ist also selbst valides JavaScript. Nicht alle in JavaScript vorkommenden Datentypen können in JSON abgebildet werden, nur die Datentypen {\fontfamily{pcr}\selectfont Object}, {\fontfamily{pcr}\selectfont Array}, {\fontfamily{pcr}\selectfont String}, {\fontfamily{pcr}\selectfont Number}, {\fontfamily{pcr}\selectfont Boolean} und {\fontfamily{pcr}\selectfont Null} sind bekannt. Fast alle verbreiteten Programmiersprachen haben jedoch äquivalente Datentypen. So ist JSON auch zum Austausch mit anderen Sprachen gut geeignet \cite{json:crockford}.
+
+Beispiele von JSON finden sich in den Listings \ref{lst:mustache} und \ref{lst:shardsconf-long}.
+
+
+\subsubsection{AJAX}
+\label{subsec:ajax}
+
+\textit{AJAX} steht für \textit{Asynchronous JavaScript And XML}. Es bezeichnet kein Paket oder Framework. Jesse James Garrett, der den Begriff 2005 in \cite{ajax:approach} prägte, beschreibt AJAX als 
+
+\begin{quote}
+[...] an approach — a way of thinking about the architecture of web applications using certain technologies.
+\end{quote}
+
+Die Bestandteile von AJAX sind laut \cite{ajax:approach} mehrere Technologien aus dem Bereich der Webentwicklung: die Repräsentierung durch XHTML und CSS, dynamische Interaktion durch das DOM, Datenaustausch und -manipulation durch XML und XSLT (oder ein anderes Datenaustauschformat wie JSON), asynchrone Datenanforderung durch XMLHttpRequest, und JavaScript für die Verbindung der Komponenten. Mit diesem Setup wird es möglich, Daten zwischen Browser und Server asynchron zu übertragen. 
+
+Eine Webanwendung ist klassischerweise so aufgebaut, dass eine Aktion auf der Benutzeroberfläche eine HTTP-Anfrage zu einem Webserver auslöst. Der Server berechnet das Ergebnis mithilfe von Anwendungslogik und/oder Datenbankabfragen und schickt eine HTML-Seite an den Client zurück (vgl. \cite{ajax:approach} und Abbildung \ref{fig:classic-interaction-pattern}). 
+
+\medskip
+\begin{figure}[ht] 
+ \begin{center}
+   \includegraphics[width=0.45\textwidth]{grafik/ajax-classic} 
+ \end{center}
+ \caption[Synchrones Interaktionsschema einer traditionellen Webanwendung]{Synchrones Interaktionsschema einer traditionellen Webanwendung, nach \citelit{ajax:book}}
+ \label{fig:classic-interaction-pattern} 
+\end{figure}
+
+
+Der Einsatz der oben aufgeführten Technologien erlaubt dem Browser, Daten vom Server asynchron im Hintergrund zu laden, ohne Darstellung und Verhalten der geöffneten Seite zu verändern. Schickt der Server eine Antwort auf die asynchrone Anfrage, werden nur die Teile der Seite verändert, für die neue Daten vorliegen - sie muss nicht neu geladen werden (Abbildung \ref{fig:ajax-interaction-pattern}). Das hat den Vorteil, dass die Seite nicht ständig neu aufgebaut und weniger Daten übertragen werden müssen.
+
+\medskip
+\begin{figure}[ht] 
+ \begin{center}
+   \includegraphics[width=0.45\textwidth]{grafik/ajax-ajax} 
+ \end{center}
+ \caption[Asynchrones Interaktionsschema einer AJAX-Webanwendung]{Asynchrones Interaktionsschema einer AJAX-Webanwendung, nach \citelit{ajax:book}}
+ \label{fig:ajax-interaction-pattern} 
+\end{figure}
+
+
+
+\subsubsection{jQuery}
+
+Eine JavaScript-Bibliothek ist eine Sammlung vorgefertigter JavaScript-Funktionen, die die Entwicklung von Webanwendungen erleichtern. Die Benutzeroberfläche der Anwendung wird mit der JavaScript-Bibliothek jQuery \cite{jquery:homepage} in der Version 1.4 entwickelt:
+
+\begin{quote}
+jQuery is a fast and concise JavaScript Library that simplifies HTML document traversing, event handling, animating, and Ajax interactions for rapid web development. \cite{jquery:homepage}
+\end{quote}
+
+JQuery abstrahiert grundlegende JavaScript-Funktionalitäten. Insbesondere das Traversieren des DOMs wird dadurch stark vereinfacht. Dabei gibt jQuery keine Struktur für die Anwendung vor.
+
+In einer nicht repräsentativen Umfrage, die im April 2010 von der Organisation \textit{Web Directions} unter professionellen Webentwicklern und -designern durchgeführt wurde, gaben 78\% der Befragten an, bei JavaScript-Entwicklung jQuery zu benutzen. \cite{jquery:verbreitung}
+
+
+
+
+\subsection{Sammy.js}
+\label{subsec:sammy}
+
+\textit{Sammy.js} \cite{sammy:homepage} ist ein auf jQuery aufsetzendes Routing Framework für JavaScript-Anwendungen. Mit Sammy können \textit{Routen} definiert werden, mit denen ein bestimmtes Verhalten verknüpft wird. Dadurch kann der Controller-Teil von Applikationen eventbasiert und RESTful umgesetzt werden. In Abschnitt \ref{subsec:routes} ist die Anwendung von Sammy in der implementierten Anwendung beschrieben. 
+
+
+\subsubsection{Routen}
+
+Eine Sammy-Route besteht aus folgenden Bestandteilen:
+
+\begin{description}
+  \item[Ein Pfad:] Der \textit{Anker}-Bestandteil einer URL, also der Teil nach dem URL-Hash ({\fontfamily{pcr}\selectfont\#}). Er kann in der Spezifikation der Route als String oder als Regulärer Ausdruck angegeben werden. 
+  \item[Eine Methode:] Eine der HTML-Methoden {\fontfamily{pcr}\selectfont GET}, {\fontfamily{pcr}\selectfont POST}, {\fontfamily{pcr}\selectfont PUT} oder {\fontfamily{pcr}\selectfont DELETE}.
+  \item[Ein Callback:] Eine Funktion, die beim Aufrufen des Pfades mit der Methode aufgerufen wird.
+\end{description}
+
+Auch wenn der Pfad einer Route derselbe ist, können je nach Methode unterschiedliche Callbacks gesetzt werden. So kann z.\,B. unter der Route \enquote{\lstinline!get('#/outlines/:id')!} die Ressource Outline angezeigt und unter \enquote{\lstinline!put('#/outlines/:id')!} aktualisiert werden. Durch die Benutzung des URL-Ankers können clientseitige Anwendungen auf einer einzigen Seite umgesetzt werden, die trotzdem auf den \enquote{Zurück}-Button des Browsers reagieren.
+
+Es ist Aufgabe der Sammy-Bibliothek, benannte Parameter aus dem Pfad herauszuparsen. Dadurch können IDs oder Slugs aus dem Pfad herausgefiltert werden. Jeder String innerhalb des Pfades, der mit dem Zeichen \enquote{:} startet, wird in einen benannten Parameter umbenannt. 
+
+Routen mit den Methoden {\fontfamily{pcr}\selectfont POST}, {\fontfamily{pcr}\selectfont PUT} und {\fontfamily{pcr}\selectfont DELETE} werden nur von abgeschickten HTML-Formularen aufgerufen. Zur Laufzeit wird die  {\fontfamily{pcr}\selectfont submit}-Methode für alle Formulare überschrieben und an Sammy gebunden. Beim Abschicken des Formulars wird nach einer Route gesucht, die dem Pfad des Formulars und der Methode  entspricht. Wird eine solche Route gefunden, wird ihr Callback ausgeführt.
+
+Routen können auch an benutzerdefinierte Events gebunden werden, die dann von der Anwendung ausgelöst werden. So kann beispielsweise beim ersten Aufrufen der Sammy-Anwendung eine {\fontfamily{pcr}\selectfont init}-Funktion aufgerufen werden, die wiederum Elementen auf der Seite bestimmtes Verhalten zuweist. 
+
+
+\subsubsection{Sammy-Plugins}
+
+Es besteht die Möglichkeit, für Sammy eigene Plugins zu definieren. Ein Plugin ist Programmcode, der wie der Rest der Bibliothek eingebunden, aber erst auf Anforderung hin ausgewertet wird. 
+
+Das folgende Beispiel, entnommen \cite{sammy:plugins}, definiert die Helper-Funktion {\fontfamily{pcr}\selectfont alert()}, die die JavaScript-Funktion {\fontfamily{pcr}\selectfont alert} überschreibt und durch einen Eintrag im Logfile ersetzt:
+
+\medskip
+\begin{lstlisting}[caption=Sammy.js: Beispiel f\"ur ein Plugin]
+var MyPlugin = function(app) {
+  this.helpers({
+    alert: function(message) {
+      this.log("ALERT! " + message);
+    }
+  });
+};
+\end{lstlisting}
+
+Ein Plugin wird mit der Methode {\fontfamily{pcr}\selectfont use()} aufgerufen. Dadurch wird die Plugin-Funktion innerhalb des Kontexts der aktuellen Sammy-Applikation ausgewertet. Wenn das Beispiel-Plugin aktiviert ist, kann die Methode innerhalb aller Routen benutzt werden. 
+
+\medskip
+\begin{lstlisting}[caption=Sammy.js: Einbinden des Plugins]
+var app = $.sammy(function() {
+  this.use(MyPlugin);
+  this.get('#/', function() {
+    this.alert("I'm home"); //=> logs: ALERT! I'm home
+  });
+});
+\end{lstlisting}
+
+
+
+\subsection{Mustache.js}
+\label{subsec:mustache}
+
+Für das Rendern der HTML-Seiten wird das Template Engine \textit{Mustache} \cite{mustache:homepage} eingesetzt. Ein Template Engine ist eine Software, die in einer Datei bestimmte Platzhalter mit mitgegebenen Inhalten füllt. Mustache-Implementierungen existieren in vielen Sprachen, hier wird die JavaScript-Version \textit{Mustache.js} verwendet.
+
+Durch den Einsatz von Mustache kann die Trennung von Logik und Repräsentierung umgesetzt werden \cite{mustache:couchio}. Die Repräsentierung wird in einer HTML-Datei vorgenommen, die für nicht-statische Werte Platzhalter enthält. Die Programmlogik, also die Berechnung der ausgegebenen Werte oder die einfache Deklaration der Variablen, wird in einer \textit{View} platziert. Eine View ist ein JSON-Objekt mit Attributen und Methoden, die mit den Platzhaltern im Template korrespondieren.
+
+Das folgende Beispiel demonstriert dies (nach \cite{mustache:other}):
+
+\medskip
+\begin{lstlisting}[caption=Mustache.js: Beispiel f\"ur ein Template]
+Hallo {{name}},
+du hast gerade {{brutto_wert}}$ gewonnen!
+{{#steuerpflichtig}}
+Also, {{netto_wert}}$, nach Steuern.
+{{/steuerpflichtig}}
+\end{lstlisting}
+
+
+\medskip
+\begin{lstlisting}[caption=Mustache.js: \"Ubergebene View, label=lst:mustache]
+{
+  "name": "Chris",
+  "brutto_wert": 10000,
+  "netto_wert": 10000 - (10000 * 0.4),
+  "steuerpflichtig": true
+}
+\end{lstlisting}
+
+Die Mustache-Bibliothek ist eine JavaScript-Datei, die zur Laufzeit geladen werden muss. Durch den Aufruf der Methode {\fontfamily{pcr}\selectfont Mustache.to\_html(template, view)} werden das Template und die View gerendert:
+
+\medskip
+\begin{lstlisting}[caption=Mustache.js: Ergebnis]
+Hallo Chris,
+du hast gerade 10000$ gewonnen!
+Also, 6000.0$, nach Steuern.
+\end{lstlisting}
+
+Da bei Mustache keine Logik in den Templates umgesetzt werden muss, wird Programmieren nach dem \textit{MVC}-Architekturmuster \textit{(Model-View-Controller)} unterstützt \cite{mustache:couchio}. Bei einem aktuellen von Brian Landau durchgeführten Benchmarking Vergleich mit sieben anderen JavaScript Templating Libraries schnitt Mustache.js sehr gut ab \cite{mustache:bench}.
+
+
+
+
+\subsection{Weitere Bibliotheken}
+
+Die Gestaltung der Oberfläche wird mit HTML und \textit{Cascading Style Sheets (CSS)} vorgenommen. Für die Seitenaufteilung wird das CSS Framework \textit{Blueprint} \cite{blueprint:website} verwendet. Mit Blueprint wird ein Container mit einer bestimmten Pixelbreite erzeugt, in dem ein rasterbasiertes Layout umgesetzt werden kann. Dieses Raster ist in 24 Spalten unterteilt. Die Verteilung der Elemente auf die Seite wird vorgenommen, indem den Elementen ein bestimmtes {\fontfamily{pcr}\selectfont class}-Attribut zugewiesen wird. Ein {\fontfamily{pcr}\selectfont div}-Element mit der Auszeichnung \lstinline!<div class="column span-16">! füllt automatisch zwei Drittel des Containers aus. Blueprint stellt weiterhin \textit{Cross-Browser-Kompatibilität} sicher; eine damit umgesetzte Webseite verhält sich unabhängig vom Browsertyp weitestgehend identisch. Außerdem enthält Blueprint mehrere Stylesheets, die Voreinstellungen für ein Design liefern können.
+
+Das jQuery-Plugin \textit{jquery.autogrow} \cite{jquery:autogrow} erlaubt es, die Größe der Textareas, die die Zeilen des Gliederungseditors repräsentieren, automatisch an die Menge des enthaltenen Textes anzupassen. Während Text eingegeben wird, wächst die Textarea in der Breite und ggf. der Länge mit. Dies wird erreicht, in dem auf dem DOM-Element die entsprechende Funktion aufgerufen wird: \lstinline!$('textarea').autogrow();! 
+
+Des Weiteren wurden die jQuery-Plugins \textit{jquery.md5}, \textit{jquery.unwrap}, \textit{jquery.scrollTo}, \textit{jquery.color} und \textit{date.format} verwendet.
+
+
+
+
+
+
+
+
+
+
+
+\section{Cloud Computing}
+\label{sec:cloud}
+
+Das Deployment der Anwendung wurde mit dem sogenannten \textit{Cloud Computing} vorgenommen. Der Begriff wird als eine Metapher für über das Internet angebotene Dienste verwendet, da dieses in Computernetzwerkdiagrammen häufig als Wolke dargestellt wird (s. Abb. \ref{fig:cloud-computing}).
+
+\medskip
+\begin{figure}[ht] 
+  \begin{center}
+    \includegraphics[width=0.6\textwidth]{grafik/cloud-computing} 
+  \end{center}
+  \caption{Cloud Computing: Eine Metapher für über das Internet angebotene Dienste \cite{cloud:graphic}}
+  \label{fig:cloud-computing}
+\end{figure}
+
+Cloud Computing wurde 2006 von dem CEO von Google in einem Talk über \enquote{Search Engine Strategies} eingeführt \cite{cloud:transcript}. Der Begriff ist schwer eindeutig zu definieren, in \citelit[S. 626]{cloud:overview} wird es als \enquote{eine der vagesten Terminologien in der Technik-Geschichte} bezeichnet. Ein Grund dafür ist, dass Cloud Computing für viel Verschiedenes eingesetzt wird. Außerdem wird der Begriff von vielen Firmen für Business-Reklame benutzt. Im Jahr 2009 war er eines der aktuellen Schlagworte der IT-Branche, das am häufigsten zur Erzeugung überhöhter Erwartungen benutzt wurde:
+
+\begin{quote}
+The levels of hype around cloud computing in the IT industry are deafening, with every vendor expounding its cloud strategy and variations [...], compounding the hype. \cite{cloud:hypecycle}
+\end{quote}
+
+Laut des zitierten Berichts wird Cloud Computing in weniger als fünf Jahren im \enquote{Mainstream} angekommen sein (s. Abb. in Abschnitt \ref{subsec:hype-cycle}).
+
+Auch wenn keine einheitliche Definition des Begriffes Cloud Computing besteht, lässt sich trotzdem eine Einigkeit über grundlegende Konzepte und generelle Ziele feststellen. Verschiedene Definitionen werden im folgenden Abschnitt ausgeführt. Danach werden die gebräuchlichen Stile von Cloud Computing dargestellt, und im letzten Abschnitt werden Vor- und Nachteile für den Einsatz abgewogen.
+
+
+\subsection{Definition}
+
+Zunächst werden zwei Definitionen aus der Fachliteratur genannt:
+
+\begin{quote}
+Cloud Computing erlaubt die Bereitstellung und Nutzung von IT-Infrastruktur, von Plattformen und Anwendungen aller Art als im Web elektronisch verfügbare Dienste. \citelit[Kap. 1.1]{cloud:cloudcomputing}
+\end{quote}
+ 
+\begin{quote}
+Cloud Computing is a kind of computing technique where IT services are provided by massive low-cost computing units connected by IP networks. \citelit[S. 627]{cloud:overview}
+\end{quote}
+
+
+\citelit{cloud:overview} nennt als weitere zentrale Charakteristika von Cloud Computing die Virtualisierung der angebotenen Dienste, das dynamische Scheduling der Ressourcen und eine hohe Skalierbarkeit. Benötigt eine Anwendung zusätzliche Ressourcen, können diese sofort und ohne großen Aufwand automatisch dazu geschaltet werden. Die Infrastruktur passt sich automatisch den schwankenden oder wachsenden Anforderungen an.
+
+\citelit{cloud:cloudcomputing} betont als Kriterium auch, dass die Abrechnung dieser Cloud-Computing-Dienste üblicherweise nutzungsabhängig erfolgt: Es wird wird immer die aktuell benötigte Menge an Ressourcen zur Verfügung gestellt und bezahlt. Signifikante Kostenersparnisse sind aufgrund der flexiblen Bereitstellung und Nutzung von Diensten möglich. 
+ 
+Die oben genannten Definitionen legen nicht fest, ob Dienste auf Basis eines verteilten Systems oder eines einzelnen leistungsstarken Servers erbracht werden. Das steht im Gegensatz zum Begriff \textit{Grid Computing}, der immer Verteilte Systeme bezeichnet.
+
+
+\subsection{Stile}
+
+Cloud Computing entwickelte sich, als um den Jahrhundertwechsel die Expansion des Internets einen großen Druck auf die existierenden Speicher- und Recheneinrichtungen ausübte. Personal Computer wurden als Ressource immer billiger; Internet Service Provider begannen, diese als die zugrundeliegende Hardware-Plattform zu nutzen \citelit{cloud:overview}. Um Computer-Cluster flexibel einzusetzen wurden verschiedene Softwaremodelle entwickelt. So konnten Rechenressourcen abstrahiert werden. Daraus entwickelten sich drei größere Cloud Computing Stile. Die Vorstellung dieser Stile bezieht sich auf \citelit{cloud:overview}. 
+
+Das Cloud Computing-Konzept der Firma Amazon basiert auf der Technologie der \textit{Server-Virtualisierung}. Unter dem Namen \textit{Amazon Web Services (AWS)} werden seit 2006 mehrere Webservices angeboten. Diese bieten virtualisierte Rechenressourcen zur generischen Nutzung an. Da AWS bei seiner Einführung günstiger war als vorherige Methoden zur \enquote{on-demand}-Bereitstellung dieser Services, wurde es zum Pionier der \enquote{Infrastructure as a Service (IaaS)} Anbieter. In dieser Diplomarbeit werden das auf der Virtualisierungssoftware \textit{Xen} basierende \textit{Elastic Compute Cloud (EC2)}, der \textit{Simple Storage Service (S3)} und den Speicher \textit{Elastic Block Store (EBS)} verwendet. All diese Services sind Bestandteile von AWS.
+
+Bekannte Vertreter der beiden weiteren Cloud Computing-Stile sind u.a. die Firmen Google und Microsoft. Google bietet \textit{technique-specific sandboxes} an, die das einfache Hosting von mit bestimmten Technologien umgesetzten Anwendungen erlauben. Diese Technik wird auch bei der Firma Heroku für mit der Programmiersprache Ruby erstellte Anwendungen eingesetzt. Microsoft bietet mit dem Service \textit{Azure} eine Kombination aus Server-Virtualisierung und technique-specific Sandboxes.
+
+Server-Virtualisierung gilt als am flexibelsten und kompatibelsten mit existierender Software und Anwendungen. Die anderen beiden Ansätze führen zu höheren Einschränkungen bei der Wahl der Programmiersprache, da jeder Service nur bestimmte Technologien unterstützt. Dafür ist bei Server-Virtualisierung der Abstraktionsmehraufwand höher. Dieser Ansatz ist im Moment die populärste Technik im Cloud Computing, Dienste und Ressourcen zu abstrahieren.
+
+Mit diesen unterschiedlichen Stilen lassen sich verschiedene Arten von Cloud Computing umsetzen. Diese werden nach \cite{cloud:enzyklopaedie} in drei Ebenen eingeteilt:
+
+\begin{description}
+\item[Software as a Service (SaaS)] - Ein SaaS-Provider bietet eine Software im Internet als Dienst. Dieser kann in Anspruch genommen werden, ohne dass der Benutzer Kenntnis oder Kontrolle über die dem Service zugrundeliegende Infrastruktur hat.
+\item[Plattform as a Service (PaaS)] - Ein Paas-Provider stellt eine Plattform zur Verfügung, durch die ein leichterer Zugang zu einer Kombination aus unterschiedlichen Services ermöglicht wird.
+\item[Infrastruktur as a Service (IaaS)] - Von einem IaaS-Provider wird Hardware als Infrastrukturdienst angeboten. Auf diesem können dann eigene Services betrieben werden.
+\end{description}
+
+In Abbildung \ref{fig:aas} sind für die drei Ebenen Zielgruppen und Beispiele für Anbieter aufgeführt.
+
+\medskip
+\begin{figure}[ht] 
+  \begin{center}
+    \includegraphics[width=0.8\textwidth]{grafik/cc-services} 
+  \end{center}
+  \caption{Darstellung der drei Ebenen von Cloud Computing}
+  \label{fig:aas}
+\end{figure}
+
+
+
+\subsection{Vor- und Nachteile}
+
+Cloud Computing wird in \citelit[S. 629]{cloud:overview} als eine \enquote{Win-win-Strategie} für sowohl Anbieter als auch Benutzer der Services beschrieben.
+
+Als vorteilhaft wäre zu nennen, dass Geschäftsanforderungen \enquote{on-demand} erfüllt werden können: Kunden können über die Anwendung die Größe der benutzten Ressourcen flexibel einstellen, um sie an die tatsächlichen Anforderungen anzupassen. Dadurch ergeben sich die weiteren Vorteile, dass Kosten und Energieverbrauch gesenkt werden können. Das Ressourcenmanagement kann ebenfalls durch dynamisches \textit{Resource-Scheduling} verbessert werden.
+
+Die Nachteile beinhalten, dass bei der Beanspruchung der Dienste von traditionellen Hosting-Anbietern die Fragen bezüglich Datenschutz und Sicherheit besser geklärt sind, da hier erst einmal nur der Benutzer Kenntnisse über die Beschaffenheit des aufgesetzten Systems hat. Des Weiteren ist die Verlässlichkeit der Dienste bei technischen Defekten, Stromausfällen o.Ä. nicht gewährleistet. Dies hat bei Cloud Computing u.U. gravierendere Auswirkungen, da solch ein Zwischenfall nicht nur einen einzelnen Server, sondern alle Dienste auf einmal ausschalten können. Derartige Unsicherheiten können mit \textit{Service Level Agreements} abgefangen werden, in denen Leistungsqualität und -umfang geregelt werden. Bedenken gegenüber Cloud Computing kann ebenfalls angebracht sein, weil das Migrieren der Dienste zu einem anderen Anbieter meistens unmöglich ist. Bisher sind externe Schnittstellen kaum definiert. Aktuelle Angebote sind wegen eines Wettbewerbsvorteils meist proprietär  \citelit{cloud:cloudcomputing}.
+
+Um die finanziellen Vorteile von Cloud Computing abschätzen zu können, müssen die Kosten der tatsächlichen Nutzung von Cloud-Angeboten in Stunden oder Server-Einheiten den Kosten des Rechenzentrums oder der angeschafften IT-Infrastruktur entgegengestellt werden. Dabei sollte die durchschnittliche Auslastung des Rechenzentrums mit einbezogen werden. Beachtet werden muss aber, dass ein Rechenzentrum fixe Kapazitäten hat, Cloud-Dienste dagegen über eine nach oben offene Kapazitätsgrenze verfügen \citelit[Kap. 7.2.1]{cloud:cloudcomputing}.
